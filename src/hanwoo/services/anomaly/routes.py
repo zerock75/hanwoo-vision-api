@@ -7,7 +7,7 @@ import numpy as np
 from pathlib import Path
 from typing import Annotated
 
-from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi import APIRouter, File, HTTPException, UploadFile, Form
 from fastapi.responses import JSONResponse
 from PIL import Image
 from pydantic import BaseModel
@@ -86,6 +86,35 @@ async def infer(
         "total_ms": round(t_preprocess + t_infer, 1),
         **result,
     }
+
+@router.post('/infer/save')
+async def infer_save(
+	cattle_no: Annotated[str, Form()],
+	prod_date: Annotated[str, Form()],
+	c_code: Annotated[str, Form()]
+):
+	img_path 	= Path(f"/app/storage/rmb2/save/{prod_date}/{cattle_no}/{c_code}_before.png")
+
+	if not img_path.exists():
+		raise HTTPException(status_code=404, detail=f"이미지를 찾을 수 없습니다: {img_path}")
+
+	try:
+		img 	= Image.open(img_path).convert("RGB")
+	except Exception as e:
+		raise HTTPException(status_code=400, detail=f"허용되지 않는 이미지 포맷입니다. {e}") from e
+	
+	t0 		= time.perf_counter()
+	result 	= get_anomaly_service().predict(img)
+	t_infer 	= (time.perf_counter() - t0) * 1000
+
+	return {
+		"filename": img_path.name,
+		"infer_ms": round(t_infer, 1),
+		**result,
+	}
+
+	
+
 
 
 # ── Threshold ─────────────────────────────────────────────────────────────────
