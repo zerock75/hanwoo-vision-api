@@ -1,7 +1,7 @@
 services:
   matching:
     build: .
-    command: uvicorn hanwoo.services.matching.main:app --host 0.0.0.0 --port 8000
+    command: uvicorn hanwoo.services.matching.main:app --host 0.0.0.0 --port 8000 --reload
     ports:
       - "8888:8000"
     environment:
@@ -16,6 +16,8 @@ services:
     volumes:
       - ./models:/app/models:ro
       - ./storage:/app/storage
+      - ./src:/app/src
+      - /mnt/f/NIPA/aidm/rmb2/save:/app/storage/rmb2/save
     depends_on:
       - qdrant
 
@@ -33,6 +35,7 @@ services:
     volumes:
       - ./models:/app/models:ro
       - ./storage:/app/storage
+      - /mnt/f/NIPA/aidm/rmb2/save:/app/storage/rmb2/save
 
   qdrant:
     image: qdrant/qdrant:latest
