@@ -17,7 +17,6 @@ services:
       TZ: Asia/Seoul
       LANG: ko_KR.UTF-8
       LC_ALL: ko_KR.UTF-8
-      HANWOO_DEVICE: auto
       NVIDIA_VISIBLE_DEVICES: all
       NVIDIA_DRIVER_CAPABILITIES: compute,utility
       
@@ -44,7 +43,6 @@ services:
       TZ: Asia/Seoul
       LANG: ko_KR.UTF-8
       LC_ALL: ko_KR.UTF-8
-      HANWOO_DEVICE: auto
       NVIDIA_VISIBLE_DEVICES: all
       NVIDIA_DRIVER_CAPABILITIES: compute,utility
     volumes:
