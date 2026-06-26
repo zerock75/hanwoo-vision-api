@@ -11,6 +11,7 @@ RUN apt-get update \
         libglib2.0-0 \
         python3 \
         python3-pip \
+		  language-pack-ko \
     && rm -rf /var/lib/apt/lists/*
 
 COPY pyproject.toml README.md ./

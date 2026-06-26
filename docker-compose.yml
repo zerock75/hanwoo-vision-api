@@ -13,6 +13,9 @@ services:
       HANWOO_API_KEY: ${HANWOO_API_KEY:?Set HANWOO_API_KEY in .env}
       QDRANT_URL: http://qdrant:6333
       QDRANT_COLLECTION: hanwoo_matching_gallery
+      TZ: Asia/Seoul
+      LANG: ko_KR.UTF-8
+      LC_ALL: ko_KR.UTF-8
     volumes:
       - ./models:/app/models:ro
       - ./storage:/app/storage
@@ -32,6 +35,9 @@ services:
       ANOMALY_THRESHOLD_PATH: /app/models/anomaly/threshold.json
       U2NET_HOME: /app/models/u2net
       HANWOO_API_KEY: ${HANWOO_API_KEY:?Set HANWOO_API_KEY in .env}
+      TZ: Asia/Seoul
+      LANG: ko_KR.UTF-8
+      LC_ALL: ko_KR.UTF-8
     volumes:
       - ./models:/app/models:ro
       - ./storage:/app/storage
@@ -43,6 +49,11 @@ services:
       - "6333:6333"
     volumes:
       - qdrant_data:/qdrant/storage
+    environment:
+      TZ: Asia/Seoul
+      LANG: ko_KR.UTF-8
+      LC_ALL: ko_KR.UTF-8
+    
 
 volumes:
   qdrant_data:
