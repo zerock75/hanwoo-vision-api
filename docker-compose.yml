@@ -4,6 +4,7 @@ services:
     command: uvicorn hanwoo.services.matching.main:app --host 0.0.0.0 --port 8000 --reload
     ports:
       - "8888:8000"
+    gpus: all
     environment:
       HANWOO_DEVICE: auto
       MATCHING_MODEL_PATH: /app/models/matching/encoder.pt
@@ -16,6 +17,10 @@ services:
       TZ: Asia/Seoul
       LANG: ko_KR.UTF-8
       LC_ALL: ko_KR.UTF-8
+      HANWOO_DEVICE: auto
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
+      
     volumes:
       - ./models:/app/models:ro
       - ./storage:/app/storage
@@ -26,9 +31,10 @@ services:
 
   anomaly:
     build: .
-    command: uvicorn hanwoo.services.anomaly.main:app --host 0.0.0.0 --port 8001
+    command: uvicorn hanwoo.services.anomaly.main:app --host 0.0.0.0 --port 8001 --reload
     ports:
       - "8889:8001"
+    gpus: all
     environment:
       HANWOO_DEVICE: auto
       ANOMALY_MODEL_PATH: /app/models/anomaly/memory_bank.pth
@@ -38,10 +44,15 @@ services:
       TZ: Asia/Seoul
       LANG: ko_KR.UTF-8
       LC_ALL: ko_KR.UTF-8
+      HANWOO_DEVICE: auto
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
     volumes:
       - ./models:/app/models:ro
+      - ./src:/app/src
       - ./storage:/app/storage
       - /mnt/f/NIPA/aidm/rmb2/save:/app/storage/rmb2/save
+      - ./models/torch_cache:/root/.cache/torch
 
   qdrant:
     image: qdrant/qdrant:latest
