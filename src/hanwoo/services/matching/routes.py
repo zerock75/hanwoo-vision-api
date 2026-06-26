@@ -70,6 +70,36 @@ def list_gallery(
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
+@router.post("/gallery/save")
+async def add_gallery_save(
+    cattle_no: Annotated[str, Form()],
+    prod_date: Annotated[str, Form()],
+    c_code: Annotated[str, Form()],
+):
+    image_path = Path(f"/app/storage/rmb2/save/{prod_date}/{cattle_no}/{c_code}_before.png")
+    if not image_path.exists():
+        raise HTTPException(status_code=404, detail=f"이미지를 찾을 수 없습니다: {image_path}")
+
+    try:
+        image = Image.open(image_path).convert("RGB")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"허용되지 않은 이미지 포맷입니다. {e}") from e
+
+    try:
+        result = get_matching_service().add_gallery_image(
+            f"{c_code}_before.png",
+            image,
+            lot_id=cattle_no,
+            capture_date=prod_date,
+            preprocessed=False,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+
+    return result
+
+
+
 
 @router.post("/gallery/images")
 async def add_gallery_images(
