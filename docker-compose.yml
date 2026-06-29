@@ -27,6 +27,7 @@ services:
       - /mnt/f/NIPA/aidm/rmb2/save:/app/storage/rmb2/save
     depends_on:
       - qdrant
+    restart: always
 
   anomaly:
     build: .
@@ -51,6 +52,7 @@ services:
       - ./storage:/app/storage
       - /mnt/f/NIPA/aidm/rmb2/save:/app/storage/rmb2/save
       - ./models/torch_cache:/root/.cache/torch
+    restart: always
 
   qdrant:
     image: qdrant/qdrant:latest
@@ -62,6 +64,7 @@ services:
       TZ: Asia/Seoul
       LANG: ko_KR.UTF-8
       LC_ALL: ko_KR.UTF-8
+    restart: always
     
 
 volumes:
