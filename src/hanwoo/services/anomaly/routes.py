@@ -14,6 +14,9 @@ from pydantic import BaseModel
 
 from hanwoo.services.anomaly.pipeline import AnomalyService
 
+import httpx
+from hanwoo.core.config import HANWOO_API_KEY
+
 router = APIRouter()
 anomaly_service: AnomalyService | None = None
 
@@ -107,10 +110,40 @@ async def infer_save(
 	result 	= get_anomaly_service().predict(img)
 	t_infer 	= (time.perf_counter() - t0) * 1000
 
+	# result_json 	= result.json()
+
+	if result.get("is_anomaly") == True:
+		return {
+			"anomaly": {			
+				"filename": img_path.name,
+				"infer_ms": round(t_infer, 1),
+				**result,
+			},
+		}
+
+	async with httpx.AsyncClient() as client:
+		response 	= await client.post(
+			"http://matching:8000/gallery/save",
+			data={
+				"cattle_no": cattle_no,
+				"prod_date": prod_date,
+				"c_code": c_code
+			},
+			headers={"X-API-Key": HANWOO_API_KEY}
+		)
+
+
+
 	return {
-		"filename": img_path.name,
-		"infer_ms": round(t_infer, 1),
-		**result,
+		"anomaly": {
+			
+			"filename": img_path.name,
+			"infer_ms": round(t_infer, 1),
+			**result,
+		},
+
+		"matching":  response.json()		
+		
 	}
 
 	
