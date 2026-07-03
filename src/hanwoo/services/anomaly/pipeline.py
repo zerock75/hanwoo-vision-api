@@ -40,6 +40,11 @@ def _upsample_heatmap(hmap: np.ndarray, bg_mask: np.ndarray | None = None) -> np
         valid = up[~bg_mask]
     else:
         valid = up.flatten()
+
+    # 유효픽셀 `0` 예외처리  
+    if valid.size == 0:
+        return np.zeros_like(up)
+
     vmin, vmax = valid.min(), valid.max()
     up = np.clip((up - vmin) / (vmax - vmin + 1e-8), 0, 1)
     if bg_mask is not None:

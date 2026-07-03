@@ -6,11 +6,14 @@ from typing import Annotated
 
 from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile
 from PIL import Image
+from pydantic import BaseModel
 
 from hanwoo.core.config import DEFAULT_TOP_K, MATCHING_MODEL_PATH, STORAGE_DIR
 from hanwoo.core.preprocessing import preprocess_for_matching
 from hanwoo.core.schemas import DirectoryImportRequest
 from hanwoo.services.matching.pipeline import MatchingService
+
+
 
 
 router = APIRouter()
@@ -99,6 +102,12 @@ async def add_gallery_save(
     return result
 
 
+
+@router.get('/warmup')
+async def warmup():
+    dummy = Image.new("RGB", (224, 224), color=(128, 128, 128))
+    get_matching_service().embed_image(dummy)
+    return {"errno": 0}
 
 
 @router.post("/gallery/images")
@@ -232,3 +241,35 @@ async def match_image(
         "preprocess": preprocess,
         "matches": matches,
     }
+
+class matchImageSaveRequest(BaseModel):
+	image_name: str
+	cattle_no: str
+	prod_date: str
+
+@router.post("/match/save")
+async def match_image_save(body: matchImageSaveRequest):
+
+	image_path 	= Path(f"/app/storage/rmb2/save/{body.prod_date}/{body.cattle_no}/{body.image_name}")
+    
+	print(f"{image_path}")
+
+	image = Image.open(image_path).convert("RGB")
+	try:
+		matches = get_matching_service().find_matches(
+			image,
+			top_k=1,
+			lot_id=body.cattle_no,
+			capture_date=body.prod_date
+		)
+	except ValueError as exc:
+		raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+	if not matches:
+		raise HTTPException(status_code=404, detail="갤러리에 맞는 이미지가 없음")
+	return {
+		"errno": 0,
+		"message": "성공",
+		"matches": matches
+	}
+	

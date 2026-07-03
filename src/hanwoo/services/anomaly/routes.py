@@ -17,6 +17,9 @@ from hanwoo.services.anomaly.pipeline import AnomalyService
 import httpx
 from hanwoo.core.config import HANWOO_API_KEY
 
+import asyncio
+from PIL import Image 
+
 router = APIRouter()
 anomaly_service: AnomalyService | None = None
 
@@ -90,13 +93,16 @@ async def infer(
         **result,
     }
 
+class InferSaveRequest(BaseModel):
+	cattle_no: str
+	prod_date: str
+	c_code: str
+
 @router.post('/infer/save')
-async def infer_save(
-	cattle_no: Annotated[str, Form()],
-	prod_date: Annotated[str, Form()],
-	c_code: Annotated[str, Form()]
-):
-	img_path 	= Path(f"/app/storage/rmb2/save/{prod_date}/{cattle_no}/{c_code}_before.png")
+async def infer_save(body: InferSaveRequest):
+	img_path 	= Path(f"/app/storage/rmb2/save/{body.prod_date}/{body.cattle_no}/{body.c_code}_before.png")
+
+	print(f"img_path: {img_path}")
 
 	if not img_path.exists():
 		raise HTTPException(status_code=404, detail=f"이미지를 찾을 수 없습니다: {img_path}")
@@ -112,8 +118,11 @@ async def infer_save(
 
 	# result_json 	= result.json()
 
+	# result["is_anomaly"] = False
 	if result.get("is_anomaly") == True:
 		return {
+			"errno": 1,
+			"message": "이물질 탐지",
 			"anomaly": {			
 				"filename": img_path.name,
 				"infer_ms": round(t_infer, 1),
@@ -125,9 +134,9 @@ async def infer_save(
 		response 	= await client.post(
 			"http://matching:8000/gallery/save",
 			data={
-				"cattle_no": cattle_no,
-				"prod_date": prod_date,
-				"c_code": c_code
+				"cattle_no": body.cattle_no,
+				"prod_date": body.prod_date,
+				"c_code": body.c_code
 			},
 			headers={"X-API-Key": HANWOO_API_KEY}
 		)
@@ -135,6 +144,8 @@ async def infer_save(
 
 
 	return {
+		"errno": 0,
+		"message": "이물질 검사 성공",
 		"anomaly": {
 			
 			"filename": img_path.name,
@@ -146,7 +157,24 @@ async def infer_save(
 		
 	}
 
+
+@router.get("/warmup")	
+async def warmup():
+	dummy 	= Image.new("RGB", (224, 224))
+	get_anomaly_service().predict(dummy)
 	
+	async with httpx.AsyncClient(timeout=10.0) as client:
+		response = await client.get(
+			"http://matching:8000/warmup",
+			headers={"X-API-Key": HANWOO_API_KEY}
+		)
+
+	return {
+		"anomaly": {
+			"errno": 0,
+		},		
+		"matching": response.json()
+	}
 
 
 
