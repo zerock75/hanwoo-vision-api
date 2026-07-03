@@ -1,10 +1,17 @@
 services:
   matching:
+    image: hanwoo-vision-api:1.0.0 
     build: .
     command: uvicorn hanwoo.services.matching.main:app --host 0.0.0.0 --port 8000 --reload
     ports:
       - "8888:8000"
-    gpus: all
+    deploy:                          # ← 이렇게
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
     environment:
       HANWOO_DEVICE: auto
       MATCHING_MODEL_PATH: /app/models/matching/encoder.pt
@@ -30,11 +37,18 @@ services:
     restart: unless-stopped
 
   anomaly:
+    image: hanwoo-vision-api:1.0.0 
     build: .
     command: uvicorn hanwoo.services.anomaly.main:app --host 0.0.0.0 --port 8001 --reload
     ports:
       - "8889:8001"
-    gpus: all
+    deploy:                          # ← 이렇게
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
     environment:
       HANWOO_DEVICE: auto
       ANOMALY_MODEL_PATH: /app/models/anomaly/memory_bank.pth
