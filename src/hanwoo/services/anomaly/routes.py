@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import io
 import time
-import cv2
+# import cv2
 import numpy as np
 from pathlib import Path
 from typing import Annotated
@@ -97,6 +97,7 @@ class InferSaveRequest(BaseModel):
 	cattle_no: str
 	prod_date: str
 	c_code: str
+	anomaly_YN: str
 
 @router.post('/infer/save')
 async def infer_save(body: InferSaveRequest):
@@ -113,22 +114,30 @@ async def infer_save(body: InferSaveRequest):
 		raise HTTPException(status_code=400, detail=f"허용되지 않는 이미지 포맷입니다. {e}") from e
 	
 	t0 		= time.perf_counter()
-	result 	= get_anomaly_service().predict(img)
-	t_infer 	= (time.perf_counter() - t0) * 1000
+	
 
 	# result_json 	= result.json()
 
 	# result["is_anomaly"] = False
-	if result.get("is_anomaly") == True:
-		return {
-			"errno": 1,
-			"message": "이물질 탐지",
-			"anomaly": {			
-				"filename": img_path.name,
-				"infer_ms": round(t_infer, 1),
-				**result,
-			},
-		}
+	
+	if body.anomaly_YN == 'Y':
+		result 	= get_anomaly_service().predict(img)
+		t_infer 	= (time.perf_counter() - t0) * 1000
+		if result.get("is_anomaly") == True:
+			return {
+				"errno": 1,
+				"message": "이물질 탐지",
+				"anomaly": {			
+					"filename": img_path.name,
+					"infer_ms": round(t_infer, 1),
+					**result,
+				},
+			}
+	else:
+		result = {"no_check": True}
+		t_infer 	= (time.perf_counter() - t0) * 1000
+
+	
 
 	async with httpx.AsyncClient() as client:
 		response 	= await client.post(

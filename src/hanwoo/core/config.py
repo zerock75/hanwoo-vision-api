@@ -19,7 +19,7 @@ U2NET_HOME = Path(os.getenv("U2NET_HOME", MODELS_DIR / "u2net"))
 
 DEVICE = os.getenv("HANWOO_DEVICE", "auto")
 DEFAULT_TOP_K = int(os.getenv("DEFAULT_TOP_K", "5"))
-HANWOO_API_KEY = os.getenv("HANWOO_API_KEY")
+HANWOO_API_KEY = os.getenv("HANWOO_API_KEY", "")
 
 GALLERY_DIR = Path(os.getenv("HANWOO_GALLERY_DIR", STORAGE_DIR / "gallery_images"))
 
