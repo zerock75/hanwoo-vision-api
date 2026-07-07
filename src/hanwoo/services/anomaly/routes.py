@@ -134,7 +134,10 @@ async def infer_save(body: InferSaveRequest):
 				},
 			}
 	else:
-		result = {"no_check": True}
+		result = {
+         "no_check": True,
+         "is_anomaly": False,
+      }
 		t_infer 	= (time.perf_counter() - t0) * 1000
 
 	

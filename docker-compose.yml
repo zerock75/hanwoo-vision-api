@@ -1,6 +1,6 @@
 services:
   matching:
-    image: hanwoo-vision-api:1.0.0 
+    image: hanwoo-vision-api:1.0.2
     build: .
     command: uvicorn hanwoo.services.matching.main:app --host 0.0.0.0 --port 8000 --reload
     ports:
@@ -37,7 +37,7 @@ services:
     restart: unless-stopped
 
   anomaly:
-    image: hanwoo-vision-api:1.0.0 
+    image: hanwoo-vision-api:1.0.2
     build: .
     command: uvicorn hanwoo.services.anomaly.main:app --host 0.0.0.0 --port 8001 --reload
     ports:
