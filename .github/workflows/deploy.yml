@@ -20,7 +20,7 @@ jobs:
 
       - name: Build image
         run: |
-          docker build -f Dockerfile.main \
+          docker build -f Dockerfile \
             -t 192.168.0.232:5000/hanwoo-vision-api:${{ steps.vars.outputs.tag }} \
             -t 192.168.0.232:5000/hanwoo-vision-api:latest .
 
