@@ -35,3 +35,4 @@ jobs:
           cd /home/zerock/projects/ansim-lpc/hanwoo-vision-api
           docker-compose pull
           docker-compose up -d
+
