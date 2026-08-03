@@ -16,9 +16,20 @@ RUN apt-get update \
 
 COPY pyproject.toml README.md ./
 
-RUN python3 -m pip install --no-cache-dir --break-system-packages -e .
+# RUN python3 -m pip install --no-cache-dir --break-system-packages -e .
+
+RUN python3 - << 'EOF'
+import tomllib, subprocess, sys
+with open('pyproject.toml', 'rb') as f:
+    deps = tomllib.load(f)['project']['dependencies']
+subprocess.run([sys.executable, '-m', 'pip', 'install',
+    '--no-cache-dir', '--break-system-packages'] + deps, check=True)
+EOF
 
 COPY src ./src
+
+RUN python3 -m pip install --no-cache-dir --break-system-packages --no-deps -e .
+
 
 
 EXPOSE 8000 8001
