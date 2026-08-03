@@ -1,6 +1,6 @@
 services:
   matching:
-    image: hanwoo-vision-api:1.0.2
+    image: 192.168.0.232:5000/hanwoo-vision-api:${IMAGE_TAG:-latest}
     build: .
     command: uvicorn hanwoo.services.matching.main:app --host 0.0.0.0 --port 8000 --reload
     ports:
@@ -30,14 +30,14 @@ services:
     volumes:
       - ./models:/app/models:ro
       - ./storage:/app/storage
-      - ./src:/app/src
+      # - ./src:/app/src
       - /mnt/f/NIPA/aidm/rmb2/save:/app/storage/rmb2/save
     depends_on:
       - qdrant
     restart: unless-stopped
 
   anomaly:
-    image: hanwoo-vision-api:1.0.2
+    image: 192.168.0.232:5000/hanwoo-vision-api:${IMAGE_TAG:-latest}
     build: .
     command: uvicorn hanwoo.services.anomaly.main:app --host 0.0.0.0 --port 8001 --reload
     ports:
@@ -62,7 +62,7 @@ services:
       NVIDIA_DRIVER_CAPABILITIES: compute,utility
     volumes:
       - ./models:/app/models:ro
-      - ./src:/app/src
+      # - ./src:/app/src
       - ./storage:/app/storage
       - /mnt/f/NIPA/aidm/rmb2/save:/app/storage/rmb2/save
       - ./models/torch_cache:/root/.cache/torch
