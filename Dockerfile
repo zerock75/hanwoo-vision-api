@@ -14,9 +14,10 @@ RUN apt-get update \
 		  language-pack-ko \
     && rm -rf /var/lib/apt/lists/*
 
+COPY pyproject.toml README.md ./
+
 RUN python3 -m pip install --no-cache-dir --break-system-packages -e .
 
-COPY pyproject.toml README.md ./
 COPY src ./src
 
 EXPOSE 8000 8001
