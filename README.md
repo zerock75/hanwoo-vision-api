@@ -2,9 +2,13 @@
 
 FastAPI services for Hanwoo vision workflows. The matching service manages a
 lot-scoped gallery, stores gallery embeddings in Qdrant, and matches a query
-image against the requested lot. The anomaly service runs PatchCore-style
-DINOv2 feature matching against a memory bank and returns anomaly score,
-regions, threshold result, and heatmap overlay.
+image against the requested lot. The dinomaly service runs ViTill
+reconstruction over DINOv2 features and returns anomaly score, threshold
+result, and heatmap overlay.
+
+The earlier PatchCore-style anomaly service is retired. It stays in the repo
+behind the `legacy` Compose profile and is not started by default; dinomaly
+now serves its port.
 
 Full endpoint reference with parameter tables and curl examples:
 [API_ENDPOINTS.md](API_ENDPOINTS.md)
@@ -12,7 +16,11 @@ Full endpoint reference with parameter tables and curl examples:
 ## Current Status
 
 - Matching service is exposed on host port `8888`.
-- Anomaly service is exposed on host port `8889`.
+- Dinomaly service is exposed on host ports `8890` and `8889` (the retired
+  anomaly service's port).
+- The legacy anomaly service is not started by default. Bring it up with
+  `docker compose --profile legacy up -d anomaly`, stopping dinomaly first so
+  they do not both claim `8889`.
 - Qdrant is used as the embedding database.
 - Gallery images are stored on disk under a lot/date folder structure.
 - GPU runtime is supported through Docker Compose GPU override.
@@ -30,11 +38,11 @@ FastAPI services
   |
   +-- matching: optional preprocessing -> Swin encoder -> Qdrant search
   |
-  +-- anomaly: optional preprocessing -> DINOv2 patches -> memory bank score
+  +-- dinomaly: optional preprocessing -> DINOv2 encoder -> ViTill decoder
   |
   +-- Qdrant: matching vectors and metadata
   |
-  +-- disk storage: gallery images and anomaly artifacts
+  +-- disk storage: gallery images and inference artifacts
 ```
 
 Gallery separation is handled with Qdrant payload filters:
@@ -79,7 +87,8 @@ hanwoo-vision-api/
 │   │   └── gpu.py
 │   └── services/
 │       ├── matching/
-│       └── anomaly/
+│       ├── dinomaly/
+│       └── validator/
 ├── models/
 ├── gateway/
 ├── scripts/
@@ -122,11 +131,11 @@ Environment variables:
 | `HANWOO_API_KEY` | required | Shared API key required in the `X-API-Key` header. |
 | `QDRANT_URL` | `http://qdrant:6333` | Qdrant service URL. |
 | `QDRANT_COLLECTION` | `hanwoo_matching_gallery` | Qdrant collection name. |
-| `ANOMALY_MODEL_PATH` | `/app/models/anomaly/memory_bank.pth` | Anomaly memory bank path. |
-| `ANOMALY_THRESHOLD_PATH` | `/app/models/anomaly/threshold.json` | Anomaly threshold JSON path. |
-| `ANOMALY_DINO_LAYERS` | `10,11` | DINOv2 layers used for patch embeddings. |
-| `ANOMALY_K_NEIGHBORS` | `3` | Nearest neighbors used for patch score. |
-| `ANOMALY_TOP_K_RATIO` | `0.4` | Top patch-score ratio used for image score. |
+| `DINOMALY_MODEL_PATH` | `/app/models/dinomaly/best_model.pth` | Dinomaly checkpoint path. |
+| `DINOMALY_THRESHOLD` | `0.192822` | Anomaly if score >= threshold. Calibrated on the 200-image held-out set. |
+| `DINOMALY_SCORE_MODE` | `roi_topk` | `roi_topk`, `roi_max`, or `full`. Changeable at runtime via `PUT /score-mode`. |
+| `DINOMALY_TOP_K_RATIO` | `0.01` | Fraction of ROI pixels averaged for `roi_topk`. |
+| `MATCHING_DOWNSCALE` | `1` | Divisor applied before preprocessing. `1` matches how the training set was built; `4` is ~2x faster and costs ~2.5 accuracy points. |
 
 ## Model Files
 
@@ -138,15 +147,101 @@ models/
 │   └── encoder.pt
 ├── u2net/
 │   └── u2net.onnx
-└── anomaly/
-    ├── memory_bank.pth
-    └── threshold.json
+└── dinomaly/
+    └── best_model.pth
 ```
 
 The matching service needs `models/matching/encoder.pt`. Background removal
-needs U2NET files under `models/u2net`. The anomaly service needs
-`models/anomaly/memory_bank.pth`; without it the anomaly container stays up, but
-`/health` reports `not_loaded`.
+needs U2NET files under `models/u2net`. The dinomaly service needs
+`models/dinomaly/best_model.pth`, and downloads its DINOv2 backbone on first
+use. Without a checkpoint the container stays up but `/health` reports
+`not_loaded`.
+
+The retired anomaly service still ships under the `legacy` Compose profile and
+keeps its own `ANOMALY_*` settings and `models/anomaly/` weights; see
+`docker-compose.yml` if you need it.
+
+## Matching Benchmark
+
+Held-out set: `hanwoo_matching_benchmark_v2` test split, **145 gallery images
+(`test/after`) and 145 queries (`test/before`) across 24 capture dates**, paired
+1:1 by filename stem. Measured on an RTX 5070 through the same flow the
+validator's Matching tab uses: per date the lot gallery is cleared and
+re-uploaded, then each query goes through `POST /match` with `top_k=5` and
+`preprocess=true`. A query counts as correct when the rank-1 match name equals
+the query filename stem.
+
+| Metric | Value |
+| --- | --- |
+| **Top-1 accuracy** | **0.9586** (139 / 145) |
+| **Top-5 recall** | **1.0000** (145 / 145) |
+
+Per-query latency, mean (median / p95), milliseconds:
+
+| Stage | Mean | Median | p95 |
+| --- | --- | --- | --- |
+| `preprocess_ms` | 87.8 | 85.8 | 108.0 |
+| `query_compute_ms` | 45.8 | 46.2 | 78.7 |
+| Round trip incl. upload | 191.1 | 196.2 | 232.3 |
+
+145 queries plus all 24 gallery rebuilds finished in 71.0 s.
+
+Accuracy tracks gallery size. The 23 dates with 1-7 gallery images scored
+**74/74 (100%)**; the single date with a 71-image gallery scored **65/71
+(91.5%)** and contributed every miss. All six missed queries still had the
+correct image inside the top 5, so ranking degrades gracefully rather than
+retrieving something unrelated.
+
+The matching service uses `MATCHING_DOWNSCALE=4`, unlike dinomaly. Its gallery
+embeddings were built that way, so changing it invalidates every stored vector.
+
+## Dinomaly Benchmark
+
+Held-out set: `hanwoo_anomaly_v3` test split, **200 images (100 abnormal / 100
+good)**, 3552x2664 JPEG with background. Defect classes are 천 (cloth), 비닐
+(vinyl), 실 (thread), and 뼈 (bone). Measured on an RTX 5070, one image per
+request through `POST /infer`, `heatmap=false`, warm.
+
+Settings: `DINOMALY_SCORE_MODE=roi_topk`, `DINOMALY_THRESHOLD=0.192822`,
+`preprocess=true`.
+
+| `MATCHING_DOWNSCALE` | Accuracy | Precision | Recall | F1 | TP / FP / FN / TN |
+| --- | --- | --- | --- | --- | --- |
+| `1` (default) | **0.9550** | 0.9596 | 0.9500 | 0.9548 | 95 / 4 / 5 / 96 |
+| `4` | 0.9300 | 0.9388 | 0.9200 | 0.9293 | 92 / 6 / 8 / 94 |
+
+Per-image latency, mean (median / p95), milliseconds:
+
+| `MATCHING_DOWNSCALE` | Preprocess | Infer | Server total | Throughput |
+| --- | --- | --- | --- | --- |
+| `1` (default) | 520.6 (516 / 560) | 109.9 (104 / 145) | 630.5 (625 / 688) | 1.46 img/s |
+| `4` | 90.7 (86 / 121) | 60.0 (52 / 94) | 150.7 (140 / 191) | 4.93 img/s |
+
+`MATCHING_DOWNSCALE=4` is roughly 4x faster and costs about 2.5 accuracy
+points, because the v3 training set was preprocessed without that downscale.
+Matching the training pipeline matters more than any other tuning here.
+
+Every misclassification in both runs falls within 0.008 of the threshold, in a
+band from 0.1817 to 0.1990. The score distribution for the whole set spans only
+about 0.02, so treat any change that touches preprocessing as accuracy
+affecting until this benchmark says otherwise.
+
+### Preprocessing must be applied exactly once
+
+The same images already background-removed, with `preprocess=false`, reproduce
+the numbers above (0.9550 / 0.9596 / 0.9500). Getting the flag wrong in either
+direction is catastrophic and does not look like a failure:
+
+| Input | `preprocess` | Accuracy | Specificity |
+| --- | --- | --- | --- |
+| With background | `true` | 0.9550 | 0.96 |
+| Already removed | `false` | 0.9550 | 0.97 |
+| Already removed | `true` (double) | 0.2800 | 0.00 |
+| With background | `false` (none) | 0.2800 | 0.00 |
+
+In the two broken cases the mean score for abnormal images is 0.3419 and for
+good images 0.3420: the classes become indistinguishable and everything is
+flagged anomalous, so recall reads 1.00 while specificity is 0.00.
 
 ## Run With Docker
 
@@ -212,13 +307,14 @@ Current verified GPU health responses:
   "matching": {
     "status": "healthy",
     "model_loaded": true,
-    "device": "cuda"
+    "device": "cuda",
+    "storage_dir": "/app/storage/matching"
   },
-  "anomaly": {
+  "dinomaly": {
     "status": "healthy",
-    "bank_loaded": true,
-    "bank_size": 92381,
-    "threshold": 31.5798974609375,
+    "model_loaded": true,
+    "threshold": 0.192822,
+    "score_mode": "roi_topk",
     "device": "cuda"
   }
 }
@@ -248,8 +344,18 @@ Base URL:
 
 ```text
 matching: http://localhost:8888
-anomaly:  http://localhost:8889
+dinomaly: http://localhost:8890  (also on 8889)
 ```
+
+Validator UI:
+
+```text
+http://localhost:8501/validator/
+```
+
+Use a folder with `before/` query images and `after/` gallery images for
+matching accuracy. The page also has a Dinomaly tab that scores a zip of
+`abnormal/` and `good/` folders and reports accuracy, precision, and recall.
 
 Matching endpoints:
 
@@ -264,15 +370,20 @@ Matching endpoints:
 | `DELETE` | `/gallery/images` | Clear a lot or lot/date gallery scope. |
 | `POST` | `/match` | Match one query image against a lot/date gallery scope. |
 
-Anomaly endpoints:
+Dinomaly endpoints:
 
 | Method | Path | Purpose |
 | --- | --- | --- |
-| `GET` | `/health` | Check anomaly bank, threshold, and device status. |
+| `GET` | `/health` | Check model, threshold, score mode, and device status. |
 | `POST` | `/infer` | Run anomaly detection on one uploaded image. |
-| `GET` | `/threshold` | Read active anomaly threshold. |
-| `PUT` | `/threshold` | Update active anomaly threshold. |
-| `POST` | `/evaluate` | Evaluate server-side test folders. |
+| `GET` | `/threshold` | Read active threshold. |
+| `PUT` | `/threshold` | Update active threshold. |
+| `GET` | `/score-mode` | Read active score mode. |
+| `PUT` | `/score-mode` | Set score mode to `roi_topk`, `roi_max`, or `full`. |
+
+Legacy anomaly endpoints (`legacy` profile only) match the first four, plus
+`POST /evaluate` for server-side test folders. Dinomaly has no `/evaluate`; the
+validator's Dinomaly tab evaluates a zip client-side instead.
 
 Common parameters:
 
@@ -281,7 +392,7 @@ Common parameters:
 | `lot_id` | Yes for upload, import, match, delete, clear | Gallery and matching endpoints | Separates gallery pools by production lot. |
 | `capture_date` | No | Gallery and matching endpoints | Narrows a lot to one date. Format: `YYYY-MM-DD`. |
 | `preprocess` | No | Upload, import, match | Enables background removal and normalization. |
-| `top_k` | No | Match | Number of nearest matches to return. |
+| `top_k` | No | Match | Number of nearest matches to return. Only rank 1 includes transparent RGBA PNG base64 image data. |
 
 ## API Examples
 
@@ -428,8 +539,9 @@ docker run --rm --gpus all nvidia/cuda:12.4.1-base-ubuntu22.04 nvidia-smi
 
 Hanwoo Vision API는 한우 이미지 매칭과 이물질 이상탐지를 위한 FastAPI
 서비스입니다. 매칭 서비스는 로트별 갤러리 등록, Qdrant 기반 임베딩 검색, 쿼리
-이미지 매칭을 담당합니다. 이상탐지 서비스는 DINOv2 patch feature와 memory bank를
-사용해 anomaly score, 위치, threshold 결과, heatmap을 반환합니다.
+이미지 매칭을 담당합니다. dinomaly 서비스는 DINOv2 feature에 ViTill 복원을 적용해 anomaly score,
+threshold 결과, heatmap을 반환합니다. 기존 PatchCore 방식 이상탐지 서비스는
+사용을 중단했고, `legacy` Compose profile로만 남아 있습니다.
 
 전체 엔드포인트 파라미터와 curl 예시는 [API_ENDPOINTS.md](API_ENDPOINTS.md)에
 정리되어 있습니다.
@@ -437,7 +549,10 @@ Hanwoo Vision API는 한우 이미지 매칭과 이물질 이상탐지를 위한
 ## 현재 구현 상태
 
 - 매칭 서비스는 host port `8888`에서 접근합니다.
-- 이상탐지 서비스는 host port `8889`에서 접근합니다.
+- dinomaly 서비스는 host port `8890`과 `8889`(기존 이상탐지 포트)에서
+  접근합니다.
+- 기존 anomaly 서비스는 기본 실행 대상이 아닙니다. 필요하면 dinomaly를 먼저
+  중지한 뒤 `docker compose --profile legacy up -d anomaly`로 실행합니다.
 - 임베딩 DB로 Qdrant를 사용합니다.
 - 갤러리 원본 이미지는 로컬 디스크에 `lot_id/capture_date` 구조로 저장합니다.
 - Docker Compose GPU override로 GPU 실행을 지원합니다.
@@ -503,13 +618,14 @@ GPU 사용 중이면 응답에 `"device": "cuda"`가 포함됩니다.
   "matching": {
     "status": "healthy",
     "model_loaded": true,
-    "device": "cuda"
+    "device": "cuda",
+    "storage_dir": "/app/storage/matching"
   },
-  "anomaly": {
+  "dinomaly": {
     "status": "healthy",
-    "bank_loaded": true,
-    "bank_size": 92381,
-    "threshold": 31.5798974609375,
+    "model_loaded": true,
+    "threshold": 0.192822,
+    "score_mode": "roi_topk",
     "device": "cuda"
   }
 }
@@ -538,13 +654,90 @@ models/
 │   └── encoder.pt
 ├── u2net/
 │   └── u2net.onnx
-└── anomaly/
-    ├── memory_bank.pth
-    └── threshold.json
+└── dinomaly/
+    └── best_model.pth
 ```
 
 매칭 서비스는 `models/matching/encoder.pt`가 필요합니다. 전처리의 배경 제거를
 사용하려면 `models/u2net` 아래에 U2NET 모델이 필요합니다.
+
+## 매칭 성능 평가
+
+평가 데이터: `hanwoo_matching_benchmark_v2` test split, **갤러리 145장
+(`test/after`), 쿼리 145장(`test/before`), 촬영일 24개**이며 파일명 stem으로
+1:1 대응합니다. validator의 매칭 탭과 동일한 흐름으로 RTX 5070에서
+측정했습니다. 날짜별로 lot 갤러리를 비우고 다시 업로드한 뒤, 각 쿼리를
+`top_k=5`, `preprocess=true`로 `POST /match`에 보냅니다. rank-1 매칭 이름이 쿼리
+파일명 stem과 같으면 정답으로 계산합니다.
+
+| 지표 | 값 |
+| --- | --- |
+| **Top-1 정확도** | **0.9586** (139 / 145) |
+| **Top-5 재현율** | **1.0000** (145 / 145) |
+
+쿼리 1건당 처리 시간, 평균(중앙값 / p95), 단위 ms:
+
+| 단계 | 평균 | 중앙값 | p95 |
+| --- | --- | --- | --- |
+| `preprocess_ms` | 87.8 | 85.8 | 108.0 |
+| `query_compute_ms` | 45.8 | 46.2 | 78.7 |
+| 업로드 포함 왕복 | 191.1 | 196.2 | 232.3 |
+
+쿼리 145건과 갤러리 24회 재구축을 합쳐 71.0초가 걸렸습니다.
+
+정확도는 갤러리 크기에 따라 달라집니다. 갤러리가 1~7장인 23개 날짜는
+**74/74(100%)**였고, 갤러리가 71장인 날짜 하나가 **65/71(91.5%)**로 모든 오답을
+만들었습니다. 오답 6건도 모두 정답 이미지가 top 5 안에 있었습니다.
+
+매칭 서비스는 dinomaly와 달리 `MATCHING_DOWNSCALE=4`를 사용합니다. 갤러리
+임베딩이 이 설정으로 생성되었으므로, 값을 바꾸면 저장된 벡터가 모두 무효가
+됩니다.
+
+## Dinomaly 성능 평가
+
+평가 데이터: `hanwoo_anomaly_v3` test split, **200장(이상 100 / 정상 100)**,
+배경이 있는 3552x2664 JPEG입니다. 결함 종류는 천, 비닐, 실, 뼈입니다. RTX
+5070에서 `POST /infer`로 1장씩(`heatmap=false`, warm) 측정했습니다.
+
+설정: `DINOMALY_SCORE_MODE=roi_topk`, `DINOMALY_THRESHOLD=0.192822`,
+`preprocess=true`.
+
+| `MATCHING_DOWNSCALE` | 정확도 | 정밀도 | 재현율 | F1 | TP / FP / FN / TN |
+| --- | --- | --- | --- | --- | --- |
+| `1` (기본값) | **0.9550** | 0.9596 | 0.9500 | 0.9548 | 95 / 4 / 5 / 96 |
+| `4` | 0.9300 | 0.9388 | 0.9200 | 0.9293 | 92 / 6 / 8 / 94 |
+
+이미지 1장당 처리 시간, 평균(중앙값 / p95), 단위 ms:
+
+| `MATCHING_DOWNSCALE` | 전처리 | 추론 | 서버 합계 | 처리량 |
+| --- | --- | --- | --- | --- |
+| `1` (기본값) | 520.6 (516 / 560) | 109.9 (104 / 145) | 630.5 (625 / 688) | 1.46 img/s |
+| `4` | 90.7 (86 / 121) | 60.0 (52 / 94) | 150.7 (140 / 191) | 4.93 img/s |
+
+`MATCHING_DOWNSCALE=4`는 약 4배 빠르지만 정확도가 약 2.5%p 낮습니다. v3 학습
+데이터가 이 축소 없이 전처리되었기 때문이며, 학습 시 전처리와 동일하게 맞추는
+것이 다른 어떤 튜닝보다 중요합니다.
+
+두 실행 모두 오분류 사례가 threshold로부터 0.008 이내(0.1817~0.1990)에
+모여 있습니다. 전체 점수 분포 폭이 약 0.02에 불과하므로, 전처리를 건드리는
+변경은 이 평가로 확인하기 전까지 정확도에 영향이 있다고 보아야 합니다.
+
+### 전처리는 정확히 한 번만 적용해야 합니다
+
+이미 배경이 제거된 동일 이미지를 `preprocess=false`로 평가하면 위와 같은 결과
+(0.9550 / 0.9596 / 0.9500)가 나옵니다. 이 값을 반대로 주면 실패처럼 보이지
+않으면서 결과가 완전히 무너집니다:
+
+| 입력 | `preprocess` | 정확도 | 특이도 |
+| --- | --- | --- | --- |
+| 배경 있음 | `true` | 0.9550 | 0.96 |
+| 배경 제거됨 | `false` | 0.9550 | 0.97 |
+| 배경 제거됨 | `true` (이중 전처리) | 0.2800 | 0.00 |
+| 배경 있음 | `false` (전처리 없음) | 0.2800 | 0.00 |
+
+잘못된 두 경우에는 이상 이미지 평균 점수가 0.3419, 정상 이미지가 0.3420으로
+두 분포가 구분되지 않아 전부 이상으로 판정됩니다. 재현율은 1.00으로 보이지만
+특이도는 0.00입니다.
 
 ## API 요약
 
@@ -552,7 +745,7 @@ models/
 
 ```text
 matching: http://localhost:8888
-anomaly:  http://localhost:8889
+dinomaly: http://localhost:8890  (8889에서도 접근 가능)
 ```
 
 매칭 엔드포인트:
@@ -568,15 +761,20 @@ anomaly:  http://localhost:8889
 | `DELETE` | `/gallery/images` | 특정 lot 또는 lot/date 갤러리를 비웁니다. |
 | `POST` | `/match` | 쿼리 이미지를 특정 lot/date 갤러리와 매칭합니다. |
 
-이상탐지 엔드포인트:
+dinomaly 엔드포인트:
 
 | Method | Path | 설명 |
 | --- | --- | --- |
-| `GET` | `/health` | anomaly memory bank, threshold, device 상태를 확인합니다. |
+| `GET` | `/health` | 모델, threshold, score mode, device 상태를 확인합니다. |
 | `POST` | `/infer` | 이미지 1장에 대해 이상탐지를 수행합니다. |
-| `GET` | `/threshold` | 현재 anomaly threshold를 조회합니다. |
-| `PUT` | `/threshold` | anomaly threshold를 변경합니다. |
-| `POST` | `/evaluate` | 컨테이너 내부 테스트 폴더로 성능평가를 수행합니다. |
+| `GET` | `/threshold` | 현재 threshold를 조회합니다. |
+| `PUT` | `/threshold` | threshold를 변경합니다. |
+| `GET` | `/score-mode` | 현재 score mode를 조회합니다. |
+| `PUT` | `/score-mode` | score mode를 `roi_topk`, `roi_max`, `full` 중 하나로 설정합니다. |
+
+기존 anomaly 엔드포인트(`legacy` profile)는 위 4개와 `POST /evaluate`를
+제공합니다. dinomaly에는 `/evaluate`가 없고, validator의 Dinomaly 탭이 zip을
+클라이언트 측에서 평가합니다.
 
 주요 파라미터:
 
@@ -585,7 +783,7 @@ anomaly:  http://localhost:8889
 | `lot_id` | 등록, 매칭, 삭제에서 필수 | 갤러리를 로트별로 분리합니다. |
 | `capture_date` | 선택 | 날짜 단위로 추가 필터링합니다. 형식은 `YYYY-MM-DD`. |
 | `preprocess` | 선택 | 배경 제거, tilt 보정, crop 전처리를 수행합니다. |
-| `top_k` | 선택 | 반환할 매칭 결과 개수입니다. |
+| `top_k` | 선택 | 반환할 매칭 결과 개수입니다. 1위 결과만 투명 배경 RGBA PNG base64 이미지 데이터를 포함합니다. |
 
 ## API 예시
 

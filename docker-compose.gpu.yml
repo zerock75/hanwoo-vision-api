@@ -1,13 +1,17 @@
 services:
   matching:
-    gpus: all
     environment:
       HANWOO_DEVICE: auto
       NVIDIA_VISIBLE_DEVICES: all
       NVIDIA_DRIVER_CAPABILITIES: compute,utility
 
   anomaly:
-    gpus: all
+    environment:
+      HANWOO_DEVICE: auto
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
+  
+  dinomaly:
     environment:
       HANWOO_DEVICE: auto
       NVIDIA_VISIBLE_DEVICES: all

@@ -16,15 +16,10 @@ RUN apt-get update \
 
 COPY pyproject.toml README.md ./
 
-# RUN python3 -m pip install --no-cache-dir --break-system-packages -e .
-
-RUN python3 - << 'EOF'
-import tomllib, subprocess, sys
-with open('pyproject.toml', 'rb') as f:
-    deps = tomllib.load(f)['project']['dependencies']
-subprocess.run([sys.executable, '-m', 'pip', 'install',
-    '--no-cache-dir', '--break-system-packages'] + deps, check=True)
-EOF
+# Install deps against an empty package so this ~6GB layer is cached across
+# source edits; the editable install resolves to /app/src, filled in below.
+RUN mkdir -p src/hanwoo \
+    && python3 -m pip install --no-cache-dir --break-system-packages -e .
 
 COPY src ./src
 

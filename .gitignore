@@ -14,3 +14,5 @@ models/**/*.faiss
 models/**/threshold.json
 
 .DS_Store
+*:Zone.Identifier
+benchmark_results.json

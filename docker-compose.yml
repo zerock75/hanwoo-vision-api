@@ -2,7 +2,8 @@ services:
   matching:
     image: 192.168.0.232:5000/hanwoo-vision-api:${IMAGE_TAG:-latest}
     build: .
-    command: uvicorn hanwoo.services.matching.main:app --host 0.0.0.0 --port 8000 --reload
+    gpus: all
+    command: uvicorn hanwoo.services.matching.main:app --host 0.0.0.0 --port 8000
     ports:
       - "8888:8000"
     deploy:                          # ← 이렇게
@@ -14,13 +15,14 @@ services:
               capabilities: [gpu]
     environment:
       HANWOO_DEVICE: auto
-      MATCHING_MODEL_PATH: /app/models/matching/encoder.pt
+      MATCHING_MODEL_PATH: ${MATCHING_MODEL_PATH:-/app/models/matching/best_model.pth}
       HANWOO_STORAGE_DIR: /app/storage/matching
       U2NET_HOME: /app/models/u2net
       DEFAULT_TOP_K: 5
       HANWOO_API_KEY: ${HANWOO_API_KEY:?Set HANWOO_API_KEY in .env}
       QDRANT_URL: http://qdrant:6333
       QDRANT_COLLECTION: hanwoo_matching_gallery
+      VALIDATOR_URL: http://localhost:8501/validator
       TZ: Asia/Seoul
       LANG: ko_KR.UTF-8
       LC_ALL: ko_KR.UTF-8
@@ -36,10 +38,15 @@ services:
       - qdrant
     restart: unless-stopped
 
+  # Superseded by dinomaly, which now serves port 8889. Start it with
+  # `docker compose --profile legacy up -d anomaly` (it will claim 8889 too,
+  # so stop dinomaly first).
   anomaly:
     image: 192.168.0.232:5000/hanwoo-vision-api:${IMAGE_TAG:-latest}
+    profiles: ["legacy"]
     build: .
-    command: uvicorn hanwoo.services.anomaly.main:app --host 0.0.0.0 --port 8001 --reload
+    gpus: all
+    command: uvicorn hanwoo.services.anomaly.main:app --host 0.0.0.0 --port 8001
     ports:
       - "8889:8001"
     deploy:                          # ← 이렇게
@@ -55,6 +62,7 @@ services:
       ANOMALY_THRESHOLD_PATH: /app/models/anomaly/threshold.json
       U2NET_HOME: /app/models/u2net
       HANWOO_API_KEY: ${HANWOO_API_KEY:?Set HANWOO_API_KEY in .env}
+      VALIDATOR_URL: http://localhost:8501/validator
       TZ: Asia/Seoul
       LANG: ko_KR.UTF-8
       LC_ALL: ko_KR.UTF-8
@@ -67,6 +75,49 @@ services:
       - /mnt/f/NIPA/aidm/rmb2/save:/app/storage/rmb2/save
       - ./models/torch_cache:/root/.cache/torch
     restart: unless-stopped
+
+  dinomaly:
+    build: .
+    gpus: all
+    command: uvicorn hanwoo.services.dinomaly.main:app --host 0.0.0.0 --port 8002
+    ports:
+      - "8890:8002"
+      - "8889:8002"   # the retired anomaly service's port
+    environment:
+      HANWOO_DEVICE: auto
+      DINOMALY_MODEL_PATH: /app/models/dinomaly/best_model.pth
+      DINOMALY_THRESHOLD: 0.192822
+      DINOMALY_SCORE_MODE: roi_topk
+      MATCHING_DOWNSCALE: ${MATCHING_DOWNSCALE:-1}
+      U2NET_HOME: /app/models/u2net
+      HANWOO_API_KEY: ${HANWOO_API_KEY:?Set HANWOO_API_KEY in .env}
+    volumes:
+      - ./models:/app/models:ro
+
+  validator:
+    build: .
+    command: >
+      streamlit run src/hanwoo/services/validator/streamlit_app.py
+      --server.address=0.0.0.0
+      --server.port=8501
+      --server.baseUrlPath=validator
+      --server.maxUploadSize=2048
+      --browser.gatherUsageStats=false
+    ports:
+      - "8501:8501"
+    environment:
+      MATCHING_API_BASE_URL: http://matching:8000
+      # The Anomaly tab drives POST /evaluate, which only the legacy service has.
+      ANOMALY_API_BASE_URL: http://anomaly:8001
+      DINOMALY_API_BASE_URL: http://dinomaly:8002
+      HANWOO_API_KEY: ${HANWOO_API_KEY:?Set HANWOO_API_KEY in .env}
+    # A runaway upload should take out the validator, not the host.
+    mem_limit: 8g
+    volumes:
+      - ./storage:/app/storage
+    depends_on:
+      - matching
+      - dinomaly
 
   qdrant:
     image: qdrant/qdrant:latest

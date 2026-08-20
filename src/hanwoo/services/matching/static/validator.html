@@ -1,0 +1,474 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Hanwoo Validator</title>
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f6f7f9;
+      color: #17202a;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; }
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 18px 24px;
+      background: #ffffff;
+      border-bottom: 1px solid #d9dee7;
+      position: sticky;
+      top: 0;
+      z-index: 5;
+    }
+    h1 { margin: 0; font-size: 20px; font-weight: 700; }
+    main { padding: 20px 24px 40px; }
+    section {
+      background: #ffffff;
+      border: 1px solid #d9dee7;
+      border-radius: 8px;
+      padding: 18px;
+      margin-bottom: 18px;
+    }
+    h2 { margin: 0 0 14px; font-size: 17px; }
+    label { display: grid; gap: 6px; font-size: 13px; font-weight: 650; }
+    input, button, select {
+      font: inherit;
+      border: 1px solid #b8c0cc;
+      border-radius: 6px;
+      padding: 9px 10px;
+      background: #ffffff;
+      color: #17202a;
+      min-height: 38px;
+    }
+    input[type="checkbox"] { min-height: auto; width: 18px; height: 18px; padding: 0; }
+    button {
+      cursor: pointer;
+      border-color: #0d5c63;
+      background: #0d5c63;
+      color: #ffffff;
+      font-weight: 700;
+    }
+    button:disabled { cursor: not-allowed; opacity: .55; }
+    .grid { display: grid; grid-template-columns: repeat(4, minmax(160px, 1fr)); gap: 12px; align-items: end; }
+    .wide { grid-column: span 2; }
+    .check { display: flex; align-items: center; gap: 8px; min-height: 38px; }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(120px, 1fr));
+      gap: 10px;
+      margin: 14px 0;
+    }
+    .stat {
+      border: 1px solid #d9dee7;
+      border-radius: 8px;
+      padding: 12px;
+      background: #fbfcfd;
+    }
+    .stat strong { display: block; font-size: 20px; margin-top: 2px; }
+    .status {
+      min-height: 22px;
+      margin-top: 12px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 12px;
+      color: #4b5563;
+      white-space: pre-wrap;
+    }
+    table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 13px; }
+    th, td { border-bottom: 1px solid #e6e9ee; padding: 9px 8px; text-align: left; vertical-align: top; }
+    th { background: #f3f5f8; font-size: 12px; }
+    .ok { color: #126b3f; font-weight: 700; }
+    .bad { color: #a12828; font-weight: 700; }
+    .pairs { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; line-height: 1.45; }
+    .thumb { width: 72px; height: 56px; object-fit: contain; background: #eef1f5; border: 1px solid #d9dee7; }
+    .tabs { display: flex; gap: 8px; margin-bottom: 14px; }
+    .tab { background: #ffffff; color: #17202a; border-color: #b8c0cc; }
+    .tab.active { background: #0d5c63; color: #ffffff; border-color: #0d5c63; }
+    .hidden { display: none; }
+    @media (max-width: 900px) {
+      header { position: static; display: block; }
+      .grid, .stats { grid-template-columns: 1fr; }
+      .wide { grid-column: span 1; }
+      main { padding: 14px; }
+      table { display: block; overflow-x: auto; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Hanwoo Validator</h1>
+    <label class="wide">
+      API key
+      <input id="apiKey" type="password" autocomplete="off" placeholder="hanwoo_api_key">
+    </label>
+  </header>
+
+  <main>
+    <div class="tabs">
+      <button class="tab active" id="matchingTab" type="button">Matching</button>
+      <button class="tab" id="anomalyTab" type="button">Anomaly</button>
+    </div>
+
+    <section id="matchingPanel">
+      <h2>Matching Accuracy</h2>
+      <div class="grid">
+        <label>
+          Matching API
+          <input id="matchingBase" value="">
+        </label>
+        <label>
+          Lot ID
+          <input id="lotId" value="VALIDATOR-RUN">
+        </label>
+        <label>
+          Top K
+          <input id="topK" type="number" min="1" max="50" value="5">
+        </label>
+        <label>
+          Gallery folder
+          <input id="galleryFolder" value="after">
+        </label>
+        <label>
+          Query folder
+          <input id="queryFolder" value="before">
+        </label>
+        <label class="check">
+          <input id="matchingPreprocess" type="checkbox" checked>
+          preprocess
+        </label>
+        <label class="wide">
+          Test folder
+          <input id="matchingFiles" type="file" webkitdirectory directory multiple>
+        </label>
+      </div>
+      <button id="runMatching" type="button">Run matching validation</button>
+      <div class="status" id="matchingStatus"></div>
+      <div class="stats">
+        <div class="stat">Accuracy<strong id="matchAccuracy">-</strong></div>
+        <div class="stat">Correct<strong id="matchCorrect">-</strong></div>
+        <div class="stat">Total<strong id="matchTotal">-</strong></div>
+        <div class="stat">Avg ms<strong id="matchAvg">-</strong></div>
+        <div class="stat">Elapsed<strong id="matchElapsed">-</strong></div>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Query</th>
+            <th>Expected</th>
+            <th>Top 1</th>
+            <th>OK</th>
+            <th>Top-K pairs</th>
+            <th>Top 1 image</th>
+          </tr>
+        </thead>
+        <tbody id="matchingRows"></tbody>
+      </table>
+    </section>
+
+    <section id="anomalyPanel" class="hidden">
+      <h2>Anomaly Accuracy</h2>
+      <div class="grid">
+        <label>
+          Anomaly API
+          <input id="anomalyBase" value="">
+        </label>
+        <label>
+          Normal path tokens
+          <input id="normalTokens" value="normal,good,ok,images2">
+        </label>
+        <label class="check">
+          <input id="anomalyPreprocess" type="checkbox" checked>
+          preprocess
+        </label>
+        <label class="wide">
+          Test folder
+          <input id="anomalyFiles" type="file" webkitdirectory directory multiple>
+        </label>
+      </div>
+      <button id="runAnomaly" type="button">Run anomaly validation</button>
+      <div class="status" id="anomalyStatus"></div>
+      <div class="stats">
+        <div class="stat">Accuracy<strong id="anomalyAccuracy">-</strong></div>
+        <div class="stat">Correct<strong id="anomalyCorrect">-</strong></div>
+        <div class="stat">Total<strong id="anomalyTotal">-</strong></div>
+        <div class="stat">Avg ms<strong id="anomalyAvg">-</strong></div>
+        <div class="stat">Elapsed<strong id="anomalyElapsed">-</strong></div>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>File</th>
+            <th>Expected</th>
+            <th>Predicted</th>
+            <th>Score</th>
+            <th>OK</th>
+            <th>Heatmap</th>
+          </tr>
+        </thead>
+        <tbody id="anomalyRows"></tbody>
+      </table>
+    </section>
+  </main>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const imageExt = /\.(jpe?g|png|bmp|webp)$/i;
+
+    $("matchingBase").value = location.origin;
+    $("anomalyBase").value = location.port === "8889"
+      ? location.origin
+      : `${location.protocol}//${location.hostname}:8889`;
+
+    function headers() {
+      const key = $("apiKey").value.trim();
+      return key ? {"X-API-Key": key} : {};
+    }
+
+    function rel(file) {
+      return file.webkitRelativePath || file.name;
+    }
+
+    function stem(name) {
+      return name.split("/").pop().replace(/\.[^.]+$/, "");
+    }
+
+    function imageFiles(input) {
+      return Array.from(input.files || [])
+        .filter((file) => imageExt.test(file.name))
+        .sort((a, b) => rel(a).localeCompare(rel(b)));
+    }
+
+    function inFolder(file, folder) {
+      const token = folder.trim().toLowerCase();
+      return rel(file).toLowerCase().split("/").includes(token);
+    }
+
+    function setText(id, value) {
+      $(id).textContent = value;
+    }
+
+    function setBusy(button, busy) {
+      button.disabled = busy;
+    }
+
+    function pct(correct, total) {
+      return total ? `${((correct / total) * 100).toFixed(2)}%` : "-";
+    }
+
+    function elapsedMs(start) {
+      return Math.round(performance.now() - start);
+    }
+
+    async function readJson(response) {
+      const text = await response.text();
+      let body = {};
+      try { body = text ? JSON.parse(text) : {}; } catch { body = {detail: text}; }
+      if (!response.ok) {
+        throw new Error(body.detail || `${response.status} ${response.statusText}`);
+      }
+      return body;
+    }
+
+    async function apiFetch(base, path, options = {}) {
+      const url = `${base.replace(/\/$/, "")}${path}`;
+      const response = await fetch(url, {
+        ...options,
+        headers: {...headers(), ...(options.headers || {})},
+      });
+      return readJson(response);
+    }
+
+    function showTab(name) {
+      const matching = name === "matching";
+      $("matchingPanel").classList.toggle("hidden", !matching);
+      $("anomalyPanel").classList.toggle("hidden", matching);
+      $("matchingTab").classList.toggle("active", matching);
+      $("anomalyTab").classList.toggle("active", !matching);
+    }
+
+    $("matchingTab").addEventListener("click", () => showTab("matching"));
+    $("anomalyTab").addEventListener("click", () => showTab("anomaly"));
+
+    async function uploadGallery(base, lotId, files, preprocess, batchSize) {
+      let uploaded = 0;
+      for (let i = 0; i < files.length; i += batchSize) {
+        const form = new FormData();
+        form.append("lot_id", lotId);
+        form.append("preprocess", String(preprocess));
+        files.slice(i, i + batchSize).forEach((file) => {
+          form.append("files", file, file.name);
+        });
+        const data = await apiFetch(base, "/gallery/images", {method: "POST", body: form});
+        uploaded += data.count || 0;
+        $("matchingStatus").textContent = `uploaded ${uploaded}/${files.length}`;
+      }
+      return uploaded;
+    }
+
+    function renderMatchRow(row) {
+      const tr = document.createElement("tr");
+      const pairs = row.matches.map((match) => {
+        const sim = Number.isFinite(match.similarity) ? `${match.similarity.toFixed(2)}%` : "";
+        const dist = Number.isFinite(match.distance) ? `d=${match.distance.toFixed(4)}` : "";
+        return `#${match.rank} ${match.name} ${sim} ${dist}`;
+      }).join("<br>");
+      const img = row.matches[0]?.image_base64
+        ? `<img class="thumb" src="data:${row.matches[0].image_mime_type};base64,${row.matches[0].image_base64}" alt="">`
+        : "";
+      tr.innerHTML = `
+        <td>${row.query}</td>
+        <td>${row.expected}</td>
+        <td>${row.predicted || "-"}</td>
+        <td class="${row.correct ? "ok" : "bad"}">${row.correct ? "yes" : "no"}</td>
+        <td class="pairs">${pairs}</td>
+        <td>${img}</td>
+      `;
+      $("matchingRows").appendChild(tr);
+    }
+
+    async function runMatching() {
+      const button = $("runMatching");
+      setBusy(button, true);
+      const start = performance.now();
+      $("matchingRows").textContent = "";
+      setText("matchAccuracy", "-");
+      setText("matchCorrect", "-");
+      setText("matchTotal", "-");
+      setText("matchAvg", "-");
+      setText("matchElapsed", "-");
+      try {
+        const base = $("matchingBase").value.trim();
+        const lotId = $("lotId").value.trim();
+        const topK = Math.max(1, Math.min(50, Number($("topK").value || 1)));
+        const preprocess = $("matchingPreprocess").checked;
+        const batchSize = 25;
+        const files = imageFiles($("matchingFiles"));
+        const gallery = files.filter((file) => inFolder(file, $("galleryFolder").value));
+        const query = files.filter((file) => inFolder(file, $("queryFolder").value));
+        if (!base || !lotId || !gallery.length || !query.length) {
+          throw new Error("missing API, lot, gallery files, or query files");
+        }
+
+        $("matchingStatus").textContent = "clearing gallery";
+        await apiFetch(base, `/gallery/images?lot_id=${encodeURIComponent(lotId)}`, {method: "DELETE"});
+        await uploadGallery(base, lotId, gallery, preprocess, batchSize);
+
+        let correct = 0;
+        let totalMs = 0;
+        for (let i = 0; i < query.length; i += 1) {
+          const file = query[i];
+          const t0 = performance.now();
+          const form = new FormData();
+          form.append("file", file, file.name);
+          const data = await apiFetch(
+            base,
+            `/match?lot_id=${encodeURIComponent(lotId)}&top_k=${topK}&preprocess=${preprocess}`,
+            {method: "POST", body: form},
+          );
+          const ms = elapsedMs(t0);
+          totalMs += ms;
+          const expected = stem(file.name);
+          const predicted = data.matches[0]?.name || "";
+          const row = {query: file.name, expected, predicted, matches: data.matches, correct: predicted === expected};
+          correct += row.correct ? 1 : 0;
+          renderMatchRow(row);
+          setText("matchAccuracy", pct(correct, i + 1));
+          setText("matchCorrect", `${correct}/${i + 1}`);
+          setText("matchTotal", String(query.length));
+          setText("matchAvg", `${Math.round(totalMs / (i + 1))}`);
+          setText("matchElapsed", `${(elapsedMs(start) / 1000).toFixed(1)}s`);
+          $("matchingStatus").textContent = `queried ${i + 1}/${query.length}`;
+        }
+        $("matchingStatus").textContent = "done";
+      } catch (error) {
+        $("matchingStatus").textContent = `error: ${error.message}`;
+      } finally {
+        setBusy(button, false);
+      }
+    }
+
+    function expectedAnomaly(file) {
+      const tokens = $("normalTokens").value.split(",").map((item) => item.trim().toLowerCase()).filter(Boolean);
+      const path = rel(file).toLowerCase();
+      return !tokens.some((token) => path.includes(token));
+    }
+
+    function renderAnomalyRow(row) {
+      const tr = document.createElement("tr");
+      const heatmap = row.heatmap
+        ? `<img class="thumb" src="data:image/png;base64,${row.heatmap}" alt="">`
+        : "";
+      tr.innerHTML = `
+        <td>${row.file}</td>
+        <td>${row.expected ? "anomaly" : "normal"}</td>
+        <td>${row.predicted ? "anomaly" : "normal"}</td>
+        <td>${row.score ?? "-"}</td>
+        <td class="${row.correct ? "ok" : "bad"}">${row.correct ? "yes" : "no"}</td>
+        <td>${heatmap}</td>
+      `;
+      $("anomalyRows").appendChild(tr);
+    }
+
+    async function runAnomaly() {
+      const button = $("runAnomaly");
+      setBusy(button, true);
+      const start = performance.now();
+      $("anomalyRows").textContent = "";
+      setText("anomalyAccuracy", "-");
+      setText("anomalyCorrect", "-");
+      setText("anomalyTotal", "-");
+      setText("anomalyAvg", "-");
+      setText("anomalyElapsed", "-");
+      try {
+        const base = $("anomalyBase").value.trim();
+        const preprocess = $("anomalyPreprocess").checked;
+        const files = imageFiles($("anomalyFiles"));
+        if (!base || !files.length) {
+          throw new Error("missing API or files");
+        }
+        let correct = 0;
+        let totalMs = 0;
+        for (let i = 0; i < files.length; i += 1) {
+          const file = files[i];
+          const t0 = performance.now();
+          const form = new FormData();
+          form.append("file", file, file.name);
+          const data = await apiFetch(base, `/infer?preprocess=${preprocess}`, {method: "POST", body: form});
+          const ms = elapsedMs(t0);
+          totalMs += ms;
+          const expected = expectedAnomaly(file);
+          const predicted = Boolean(data.is_anomaly);
+          const row = {
+            file: rel(file),
+            expected,
+            predicted,
+            score: data.anomaly_score,
+            heatmap: data.heatmap_b64,
+            correct: expected === predicted,
+          };
+          correct += row.correct ? 1 : 0;
+          renderAnomalyRow(row);
+          setText("anomalyAccuracy", pct(correct, i + 1));
+          setText("anomalyCorrect", `${correct}/${i + 1}`);
+          setText("anomalyTotal", String(files.length));
+          setText("anomalyAvg", `${Math.round(totalMs / (i + 1))}`);
+          setText("anomalyElapsed", `${(elapsedMs(start) / 1000).toFixed(1)}s`);
+          $("anomalyStatus").textContent = `checked ${i + 1}/${files.length}`;
+        }
+        $("anomalyStatus").textContent = "done";
+      } catch (error) {
+        $("anomalyStatus").textContent = `error: ${error.message}`;
+      } finally {
+        setBusy(button, false);
+      }
+    }
+
+    $("runMatching").addEventListener("click", runMatching);
+    $("runAnomaly").addEventListener("click", runAnomaly);
+  </script>
+</body>
+</html>

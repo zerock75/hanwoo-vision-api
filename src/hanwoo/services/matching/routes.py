@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+from time import perf_counter
 from pathlib import Path
 from typing import Annotated
 
@@ -9,7 +10,8 @@ from PIL import Image
 from pydantic import BaseModel
 
 from hanwoo.core.config import DEFAULT_TOP_K, MATCHING_MODEL_PATH, STORAGE_DIR
-from hanwoo.core.preprocessing import preprocess_for_matching
+from hanwoo.core.image_payload import encode_image_payload
+from hanwoo.core.preprocessing import preprocess_for_matching_with_rgba
 from hanwoo.core.schemas import DirectoryImportRequest
 from hanwoo.services.matching.pipeline import MatchingService
 
@@ -29,6 +31,25 @@ def get_matching_service() -> MatchingService:
     if matching_service is None:
         raise RuntimeError("Matching service is not initialized")
     return matching_service
+
+
+def attach_match_image(match: dict) -> dict:
+    image_path = Path(str(match["image_path"]))
+    if not image_path.is_file():
+        raise HTTPException(
+            status_code=500,
+            detail=f"Matched image file not found: {image_path}",
+        )
+    payload_path = image_path.parent / ".rgba" / image_path.name
+    if not payload_path.is_file():
+        payload_path = image_path
+    try:
+        return {**match, **encode_image_payload(payload_path)}
+    except OSError as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Matched image file could not be read: {payload_path}",
+        ) from exc
 
 
 async def read_image(file: UploadFile) -> Image.Image:
@@ -127,8 +148,9 @@ async def add_gallery_images(
     added = []
     for file in files:
         image = await read_image(file)
+        rgba_image = None
         if preprocess:
-            image = preprocess_for_matching(image)
+            image, rgba_image = preprocess_for_matching_with_rgba(image)
         try:
             added.append(
                 service.add_gallery_image(
@@ -137,6 +159,7 @@ async def add_gallery_images(
                     lot_id=lot_id,
                     capture_date=capture_date,
                     preprocessed=preprocess,
+                    rgba_image=rgba_image,
                 )
             )
         except ValueError as exc:
@@ -158,8 +181,9 @@ def import_gallery_directory(request: DirectoryImportRequest):
             continue
         try:
             image = Image.open(path).convert("RGB")
+            rgba_image = None
             if request.preprocess:
-                image = preprocess_for_matching(image)
+                image, rgba_image = preprocess_for_matching_with_rgba(image)
             added.append(
                 service.add_gallery_image(
                     path.name,
@@ -167,6 +191,7 @@ def import_gallery_directory(request: DirectoryImportRequest):
                     lot_id=request.lot_id,
                     capture_date=request.capture_date,
                     preprocessed=request.preprocess,
+                    rgba_image=rgba_image,
                 )
             )
         except Exception as exc:
@@ -216,12 +241,16 @@ async def match_image(
     preprocess: Annotated[
         bool,
         Query(description="Apply background removal, tilt correction, and crop."),
-    ] = False,
+    ] = True,
     capture_date: Annotated[str | None, Query()] = None,
 ):
     image = await read_image(file)
+    preprocess_ms = 0.0
     if preprocess:
-        image = preprocess_for_matching(image)
+        preprocess_start = perf_counter()
+        image, _ = preprocess_for_matching_with_rgba(image)
+        preprocess_ms = (perf_counter() - preprocess_start) * 1000.0
+    compute_start = perf_counter()
     try:
         matches = get_matching_service().find_matches(
             image,
@@ -231,14 +260,18 @@ async def match_image(
         )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+    query_compute_ms = (perf_counter() - compute_start) * 1000.0
     if not matches:
         raise HTTPException(status_code=404, detail="Gallery scope is empty")
+    matches = [attach_match_image(matches[0]), *matches[1:]]
     return {
         "query_file": file.filename,
         "lot_id": lot_id,
         "capture_date": capture_date,
         "top_k": min(top_k, len(matches)),
         "preprocess": preprocess,
+        "preprocess_ms": round(preprocess_ms, 1),
+        "query_compute_ms": query_compute_ms,
         "matches": matches,
     }
 

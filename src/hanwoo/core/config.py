@@ -46,3 +46,14 @@ ANOMALY_TOP_K_RATIO = float(os.getenv("ANOMALY_TOP_K_RATIO", "0.4"))
 ANOMALY_THRESH_PERCENTILE = int(os.getenv("ANOMALY_THRESH_PERCENTILE", "87"))
 ANOMALY_IMAGE_SIZE: tuple[int, int] = (672, 672)
 ANOMALY_HEATMAP_POW = float(os.getenv("ANOMALY_HEATMAP_POW", "2.5"))
+
+DINOMALY_MODEL_PATH = Path(
+    os.getenv("DINOMALY_MODEL_PATH", MODELS_DIR / "dinomaly" / "best_model.pth")
+)
+# Calibrated on the 200-image held-out set (100 good / 100 abnormal):
+# roi_topk @0.192822 gives recall 0.95 at specificity 0.96 (AUROC 0.9846),
+# vs roi_max @0.206186 which needs 15 false positives for the same recall.
+DINOMALY_THRESHOLD = float(os.getenv("DINOMALY_THRESHOLD", "0.192822"))
+DINOMALY_SCORE_MODE = os.getenv("DINOMALY_SCORE_MODE", "roi_topk")
+DINOMALY_TOP_K_RATIO = float(os.getenv("DINOMALY_TOP_K_RATIO", "0.01"))
+DINOMALY_ENCODER_NAME = os.getenv("DINOMALY_ENCODER_NAME", "dinov2reg_vit_base_14")

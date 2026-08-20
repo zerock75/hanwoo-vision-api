@@ -71,6 +71,26 @@ def test_health_is_public_without_api_key(monkeypatch: pytest.MonkeyPatch) -> No
     assert body == {"ok": True}
 
 
+def test_validator_is_public_without_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(auth, "HANWOO_API_KEY", "secret")
+
+    status, body = call_auth_app("/validator")
+
+    assert status == 200
+    assert body == {"ok": True}
+
+
+def test_validator_slash_is_public_without_api_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(auth, "HANWOO_API_KEY", "secret")
+
+    status, body = call_auth_app("/validator/")
+
+    assert status == 200
+    assert body == {"ok": True}
+
+
 def test_protected_endpoint_rejects_missing_api_key(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
