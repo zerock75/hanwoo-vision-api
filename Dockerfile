@@ -21,10 +21,10 @@ COPY pyproject.toml README.md ./
 RUN mkdir -p src/hanwoo \
     && python3 -m pip install --no-cache-dir --break-system-packages -e .
 
-COPY src ./src
 
 RUN python3 -m pip install --no-cache-dir --break-system-packages --no-deps -e .
 
 
+COPY src ./src
 
 EXPOSE 8000 8001
