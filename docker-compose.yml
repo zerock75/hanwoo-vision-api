@@ -73,7 +73,7 @@ services:
     command: uvicorn hanwoo.services.dinomaly.main:app --host 0.0.0.0 --port 8002
     ports:
       - "8890:8002"
-      - "8889:8002"   # the retired anomaly service's port
+      # - "8889:8002"   # the retired anomaly service's port
     environment:
       HANWOO_DEVICE: auto
       DINOMALY_MODEL_PATH: /app/models/dinomaly/best_model.pth
