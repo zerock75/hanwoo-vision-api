@@ -67,5 +67,61 @@ services:
       - ./models/torch_cache:/root/.cache/torch
     restart: unless-stopped
 
+  dinomaly:
+    build: .
+    gpus: all
+    command: uvicorn hanwoo.services.dinomaly.main:app --host 0.0.0.0 --port 8002
+    ports:
+      - "8890:8002"
+      - "8889:8002"   # the retired anomaly service's port
+    environment:
+      HANWOO_DEVICE: auto
+      DINOMALY_MODEL_PATH: /app/models/dinomaly/best_model.pth
+      DINOMALY_THRESHOLD: 0.192822
+      DINOMALY_SCORE_MODE: roi_topk
+      MATCHING_DOWNSCALE: ${MATCHING_DOWNSCALE:-1}
+      U2NET_HOME: /app/models/u2net
+      HANWOO_API_KEY: ${HANWOO_API_KEY:?Set HANWOO_API_KEY in .env}
+    volumes:
+      - ./models:/app/models:ro
+
+  validator:
+    build: .
+    command: >
+      streamlit run src/hanwoo/services/validator/streamlit_app.py
+      --server.address=0.0.0.0
+      --server.port=8501
+      --server.baseUrlPath=validator
+      --server.maxUploadSize=2048
+      --browser.gatherUsageStats=false
+    ports:
+      - "8501:8501"
+    environment:
+      MATCHING_API_BASE_URL: http://matching:8000
+      # The Anomaly tab drives POST /evaluate, which only the legacy service has.
+      ANOMALY_API_BASE_URL: http://anomaly:8001
+      DINOMALY_API_BASE_URL: http://dinomaly:8002
+      HANWOO_API_KEY: ${HANWOO_API_KEY:?Set HANWOO_API_KEY in .env}
+    # A runaway upload should take out the validator, not the host.
+    mem_limit: 8g
+    volumes:
+      - ./storage:/app/storage
+    depends_on:
+      - matching
+      - dinomaly
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    ports:
+      - "6333:6333"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    environment:
+      TZ: Asia/Seoul
+      LANG: ko_KR.UTF-8
+      LC_ALL: ko_KR.UTF-8
+    restart: unless-stopped
+    
+
 volumes:
   qdrant_data:
