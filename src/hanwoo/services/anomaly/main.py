@@ -48,3 +48,4 @@ app.include_router(router)
 @app.get("/validator", include_in_schema=False)
 def validator_ui():
     return RedirectResponse(VALIDATOR_URL)
+
