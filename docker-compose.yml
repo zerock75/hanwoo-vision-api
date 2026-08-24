@@ -15,7 +15,7 @@ services:
               capabilities: [gpu]
     environment:
       HANWOO_DEVICE: auto
-      MATCHING_MODEL_PATH: /app/models/matching/best_model.pt
+      MATCHING_MODEL_PATH: /app/models/matching/best_model.pth
       HANWOO_STORAGE_DIR: /app/storage/matching
       U2NET_HOME: /app/models/u2net
       DEFAULT_TOP_K: 5
