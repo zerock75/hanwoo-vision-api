@@ -133,8 +133,11 @@ async def infer_save(body: InferSaveRequest):
 	# result["is_anomaly"] = False
 	
 	if body.anomaly_YN == 'Y':
-		result 	= get_anomaly_service().predict(img)
+		from hanwoo.core.preprocessing import preprocess_for_anomaly as do_preprocess
+		image = do_preprocess(img)
 		t_infer 	= (time.perf_counter() - t0) * 1000
+		result 	= get_anomaly_service().predict(image)
+		
 		if result.get("is_anomaly") == True:
 			return {
 				"errno": 1,
