@@ -301,7 +301,9 @@ async def match_image_save(body: matchImageSaveRequest):
 	if not matches:
 		raise HTTPException(status_code=404, detail="갤러리에 맞는 이미지가 없음")
 
-	# 여기에
+	
+	
+	matches[0]["name"] = matches[0]["name"][:6] + "_before"
 	print(f"matches 결과: {matches}") 
 	
 	return {
