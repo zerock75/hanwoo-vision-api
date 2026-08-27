@@ -20,6 +20,9 @@ from hanwoo.core.config import HANWOO_API_KEY
 import asyncio
 from PIL import Image 
 
+import logging
+logger = logging.getLogger(__name__)
+
 router = APIRouter()
 anomaly_service: AnomalyService | None = None
 
@@ -64,6 +67,7 @@ async def infer(
     file: Annotated[UploadFile, File(description="Hanwoo image to inspect.")],
     preprocess: bool = True,
 ):
+    logger.info("infer 요청: filename=%s, preprocess=%s", file.filename, preprocess)
     """이상탐지 단일 추론.
 
     preprocess=true (기본값): 배경제거 + 기울기보정 + 크롭 후 추론.
@@ -83,6 +87,14 @@ async def infer(
     t1 = time.perf_counter()
     result = get_anomaly_service().predict(image)
     t_infer = (time.perf_counter() - t1) * 1000
+
+    logger.info(
+        "infer 완료: filename=%s, is_anomaly=%s, score=%.4f, total_ms=%.1f",
+        file.filename,
+        result.get("is_anomaly"),
+        result.get("anomaly_score", 0),
+        t_preprocess + t_infer,
+    )
 
     return {
         "filename": file.filename,
