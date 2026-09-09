@@ -15,6 +15,8 @@ from hanwoo.services.dinomaly.pipeline import DinomalyService
 
 import httpx
 from hanwoo.core.config import HANWOO_API_KEY
+import logging
+import base64
 
 router = APIRouter()
 dinomaly_service: DinomalyService | None = None
