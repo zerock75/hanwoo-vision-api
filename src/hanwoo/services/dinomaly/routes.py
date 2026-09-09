@@ -352,4 +352,3 @@ def _classification_metrics(counts: dict[str, int], rows: list[dict]) -> dict:
             )
         )
     return metrics
-
