@@ -7,11 +7,14 @@ venv/
 
 storage/
 
-models/**/*.pt
-models/**/*.pth
-models/**/*.onnx
-models/**/*.faiss
-models/**/threshold.json
+
+
+*.pt
+*.pth
+*.onnx
+*.faiss
+threshold.json
+
 
 .DS_Store
 *:Zone.Identifier

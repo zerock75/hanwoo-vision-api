@@ -1,0 +1,48 @@
+name: Build and Deploy hanwoo-vision-api
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'Dockerfile'
+      - '.github/workflows/deploy.yml'
+
+jobs:
+  build-and-push:
+    runs-on: [self-hosted, Linux, X64, gpu]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set image tag
+        id: vars
+        run: echo "tag=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Build image
+        run: |
+          docker build -f Dockerfile \
+            --build-arg GIT_SHA=${{ steps.vars.outputs.tag }} \
+            -t 192.168.0.232:5000/hanwoo-vision-api:${{ steps.vars.outputs.tag }} \
+            -t 192.168.0.232:5000/hanwoo-vision-api:latest \
+            -t 192.168.0.232:5000/hanwoo-vision-api-dinomaly:${{ steps.vars.outputs.tag }} \
+            -t 192.168.0.232:5000/hanwoo-vision-api-dinomaly:latest \
+            -t 192.168.0.232:5000/hanwoo-vision-api-validator:${{ steps.vars.outputs.tag }} \
+            -t 192.168.0.232:5000/hanwoo-vision-api-validator:latest .
+
+
+      - name: Push image
+        run: |
+          docker push 192.168.0.232:5000/hanwoo-vision-api:${{ steps.vars.outputs.tag }}
+          docker push 192.168.0.232:5000/hanwoo-vision-api:latest
+          docker push 192.168.0.232:5000/hanwoo-vision-api-dinomaly:${{ steps.vars.outputs.tag }}
+          docker push 192.168.0.232:5000/hanwoo-vision-api-dinomaly:latest
+          docker push 192.168.0.232:5000/hanwoo-vision-api-validator:${{ steps.vars.outputs.tag }}
+          docker push 192.168.0.232:5000/hanwoo-vision-api-validator:latest
+
+      - name: Deploy
+        run: |
+          export IMAGE_TAG=${{ steps.vars.outputs.tag }}
+          cd /home/zerock/projects/ansim-lpc/hanwoo-vision-api
+          docker-compose pull
+          docker-compose up -d
+

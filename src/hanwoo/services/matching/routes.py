@@ -4,6 +4,7 @@ import io
 from time import perf_counter
 from pathlib import Path
 from typing import Annotated
+from pydantic import BaseModel
 
 from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile
 from PIL import Image
@@ -241,6 +242,49 @@ async def match_image(
         "preprocess_ms": round(preprocess_ms, 1),
         "query_compute_ms": query_compute_ms,
         "matches": matches,
+    }
+
+
+class matchImageSaveRequest(BaseModel):
+	image_name: str
+	cattle_no: str
+	prod_date: str
+
+@router.post("/match/save")
+async def match_image_save(body: matchImageSaveRequest):
+
+    image_path 	= Path(f"/app/storage/rmb2/save/{body.prod_date}/{body.cattle_no}/{body.image_name}")
+    
+    print(f"{image_path}")
+
+    image = Image.open(image_path).convert("RGB")
+
+    # 이미 전처리된 이미지이기에 전처리과정을 처리하지 않음
+    # image, _ = preprocess_for_matching_with_rgba(image)
+
+    compute_start = perf_counter()
+    try:
+        matches = get_matching_service().find_matches(
+            image,
+            top_k=1,
+            lot_id=body.cattle_no,
+            capture_date=body.prod_date
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    query_compute_ms = (perf_counter() - compute_start) * 1000.0
+
+    if not matches:
+        raise HTTPException(status_code=404, detail="갤러리에 맞는 이미지가 없음")
+
+    matches[0]["name"] = matches[0]["name"][:6] + "_before"
+    print(f"matches 결과: {matches}") 
+
+    return {
+        "errno": 0,
+        "message": "성공",
+        "matches": matches
     }
 
 
