@@ -157,6 +157,7 @@ class MatchingService:
         lot_id: str,
         capture_date: str | None = None,
         preprocessed: bool | None = None,
+        rgba_image: Image.Image | None = None,
     ) -> dict:
         with self.lock:
             store = self._ensure_store()
@@ -181,6 +182,10 @@ class MatchingService:
             save_path = save_dir / f"{final_name}.png"
             image = image.convert("RGB")
             image.save(save_path)
+            if rgba_image is not None:
+                rgba_dir = save_dir / ".rgba"
+                rgba_dir.mkdir(parents=True, exist_ok=True)
+                rgba_image.convert("RGBA").save(rgba_dir / f"{final_name}.png")
 
             emb_orig, emb_rot = self.embed_image_dual(image)
             store.upsert_image(
@@ -225,6 +230,9 @@ class MatchingService:
                     path = Path(str(image_path))
                     if path.exists():
                         path.unlink()
+                    rgba_path = path.parent / ".rgba" / path.name
+                    if rgba_path.exists():
+                        rgba_path.unlink()
         return True
 
     def clear_gallery(self, lot_id: str, capture_date: str | None = None) -> int:
@@ -241,6 +249,9 @@ class MatchingService:
                     path = Path(str(image_path))
                     if path.exists():
                         path.unlink()
+                    rgba_path = path.parent / ".rgba" / path.name
+                    if rgba_path.exists():
+                        rgba_path.unlink()
 
             root = self.gallery_dir / lot_id
             if capture_date:

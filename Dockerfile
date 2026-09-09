@@ -11,11 +11,16 @@ RUN apt-get update \
         libglib2.0-0 \
         python3 \
         python3-pip \
+		  language-pack-ko \
     && rm -rf /var/lib/apt/lists/*
 
 COPY pyproject.toml README.md ./
-COPY src ./src
 
-RUN python3 -m pip install --no-cache-dir --break-system-packages -e .
+# Install deps against an empty package so this ~6GB layer is cached across
+# source edits; the editable install resolves to /app/src, filled in below.
+RUN mkdir -p src/hanwoo \
+    && python3 -m pip install --no-cache-dir --break-system-packages -e .
+
+COPY src ./src
 
 EXPOSE 8000 8001

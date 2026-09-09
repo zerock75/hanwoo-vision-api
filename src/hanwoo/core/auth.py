@@ -9,7 +9,7 @@ from hanwoo.core.config import HANWOO_API_KEY
 
 
 API_KEY_HEADER = "X-API-Key"
-PUBLIC_PATHS = {"/health", "/docs", "/redoc", "/openapi.json"}
+PUBLIC_PATHS = {"/health", "/docs", "/redoc", "/openapi.json", "/validator", "/validator/"}
 
 
 def get_required_api_key() -> str:

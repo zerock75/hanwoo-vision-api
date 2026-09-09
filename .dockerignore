@@ -1,0 +1,14 @@
+# Bind-mounted at runtime, never needed in the build context
+models/
+storage/
+
+.git/
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.env
+tests/
+*:Zone.Identifier
+benchmark_results.json
