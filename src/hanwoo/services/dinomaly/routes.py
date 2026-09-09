@@ -108,6 +108,15 @@ async def infer_save(body: InferSaveRequest):
         result = get_dinomaly_service().predict(image, return_heatmap=True)
         t_infer = (time.perf_counter() - t1) * 1000
 
+        heatmap_b64 = result["heatmap_b64"]
+        heatmap_path = Path(f"/app/storage/rmb2/save/{body.prod_date}/{body.cattle_no}/{body.c_code}_htmap.png")
+        with open(heatmap_path, "wb") as f:
+            f.write(base64.b64decode(heatmap_b64))
+
+            # heatmap_img = Image.open(io.BytesIO(base64.b64decode(heatmap_b64)))
+            # heatmap_img = heatmap_img.resize((int(origin_w), int(origin_h)), Image.LANCZOS)
+            # heatmap_img.save(heatmap_path)
+
         # 이물질 검사 시 에러 출력
         if result.get("is_anomaly") == True:
             return {
