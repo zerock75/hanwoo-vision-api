@@ -13,6 +13,9 @@ from hanwoo.core.preprocessing import preprocess_for_matching
 from hanwoo.core.zip_dataset import extracted_zip, find_named_dir, images_in
 from hanwoo.services.dinomaly.pipeline import DinomalyService
 
+import httpx
+from hanwoo.core.config import HANWOO_API_KEY
+
 router = APIRouter()
 dinomaly_service: DinomalyService | None = None
 
@@ -78,6 +81,73 @@ async def infer(
         **result,
     }
 
+class InferSaveRequest(BaseModel):
+	cattle_no: str
+	prod_date: str
+	c_code: str
+	anomaly_YN: str
+
+@router.post("/infer/save")
+async def infer_save(body: InferSaveRequest):
+
+    # 전처리 된 이미지를 불러옴
+    img_path 	= Path(f"/app/storage/rmb2/save/{body.prod_date}/{body.cattle_no}/{body.c_code}_before.png")
+
+    if not img_path.exists():
+        raise HTTPException(status_code=404, detail=f"이미지를 찾을 수 없습니다: {img_path}")
+    
+    t0 = time.perf_counter()
+    try:
+        image 	= Image.open(img_path).convert("RGB")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"허용되지 않는 이미지 포맷입니다. {e}") from e
+
+    if body.anomaly_YN == "Y":
+        t_preprocess = (time.perf_counter() - t0) * 1000
+        t1 = time.perf_counter()
+        result = get_dinomaly_service().predict(image, return_heatmap=True)
+        t_infer = (time.perf_counter() - t1) * 1000
+
+        # 이물질 검사 시 에러 출력
+        if result.get("is_anomaly") == True:
+            return {
+                "errno": 1,
+                "message": "이물질 탐지",
+                "anomaly": {			
+                    "filename": img_path.name,
+                    "infer_ms": round(t_infer, 1),
+                    **result,
+                },
+            }
+    else:
+        result = {
+            "no_check": True,
+            "is_anomaly": False,
+        }
+        t_infer 	= (time.perf_counter() - t0) * 1000
+
+    async with httpx.AsyncClient() as client:
+        response 	= await client.post(
+            "http://matching:8000/gallery/save",
+            data={
+                "cattle_no": body.cattle_no,
+                "prod_date": body.prod_date,
+                "c_code": body.c_code
+            },
+            headers={"X-API-Key": HANWOO_API_KEY}
+        )
+
+    return {
+        "errno": 0,
+        "message": "이물질 검사 성공",
+        "anomaly": {
+            
+            "filename": img_path.name,
+            "infer_ms": round(t_infer, 1),
+            **result,
+        },
+        "matching":  response.json()		
+    }
 
 class ThresholdRequest(BaseModel):
     threshold: float

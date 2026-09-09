@@ -27,26 +27,26 @@ services:
   # Superseded by dinomaly, which now serves port 8889. Start it with
   # `docker compose --profile legacy up -d anomaly` (it will claim 8889 too,
   # so stop dinomaly first).
-  anomaly:
-    image: 192.168.0.232:5000/hanwoo-vision-api:${IMAGE_TAG:-latest}
-    profiles: ["legacy"]
-    build: .
-    gpus: all
-    command: uvicorn hanwoo.services.anomaly.main:app --host 0.0.0.0 --port 8001
-    ports:
-      - "8889:8001"
-    environment:
-      HANWOO_DEVICE: auto
-      ANOMALY_MODEL_PATH: /app/models/anomaly/memory_bank.pth
-      ANOMALY_THRESHOLD_PATH: /app/models/anomaly/threshold.json
-      U2NET_HOME: /app/models/u2net
-      HANWOO_API_KEY: ${HANWOO_API_KEY:?Set HANWOO_API_KEY in .env}
-      VALIDATOR_URL: http://localhost:8501/validator
-      NVIDIA_VISIBLE_DEVICES: all
-      NVIDIA_DRIVER_CAPABILITIES: compute,utility
-    volumes:
-      - ./models:/app/models:ro
-      - ./storage:/app/storage
+  # anomaly:
+  #   image: 192.168.0.232:5000/hanwoo-vision-api:${IMAGE_TAG:-latest}
+  #   profiles: ["legacy"]
+  #   build: .
+  #   gpus: all
+  #   command: uvicorn hanwoo.services.anomaly.main:app --host 0.0.0.0 --port 8001
+  #   ports:
+  #     - "8889:8001"
+  #   environment:
+  #     HANWOO_DEVICE: auto
+  #     ANOMALY_MODEL_PATH: /app/models/anomaly/memory_bank.pth
+  #     ANOMALY_THRESHOLD_PATH: /app/models/anomaly/threshold.json
+  #     U2NET_HOME: /app/models/u2net
+  #     HANWOO_API_KEY: ${HANWOO_API_KEY:?Set HANWOO_API_KEY in .env}
+  #     VALIDATOR_URL: http://localhost:8501/validator
+  #     NVIDIA_VISIBLE_DEVICES: all
+  #     NVIDIA_DRIVER_CAPABILITIES: compute,utility
+  #   volumes:
+  #     - ./models:/app/models:ro
+  #     - ./storage:/app/storage
 
   dinomaly:
     image: 192.168.0.232:5000/hanwoo-vision-api:${IMAGE_TAG:-latest}
