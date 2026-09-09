@@ -75,6 +75,7 @@ services:
       NVIDIA_DRIVER_CAPABILITIES: compute,utility
     volumes:
       - ./models:/app/models:ro
+      - ./storage:/app/storage
 
   validator:
     image: 192.168.0.232:5000/hanwoo-vision-api:${IMAGE_TAG:-latest}
