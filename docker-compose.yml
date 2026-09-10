@@ -21,6 +21,7 @@ services:
     volumes:
       - ./models:/app/models:ro
       - ./storage:/app/storage
+      - /mnt/f/NIPA/aidm/rmb2/save:/app/storage/rmb2/save
     depends_on:
       - qdrant
 
