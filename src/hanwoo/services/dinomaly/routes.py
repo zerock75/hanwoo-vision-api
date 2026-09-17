@@ -85,12 +85,6 @@ async def infer(
         **result,
     }
 
-class InferSaveRequest(BaseModel):
-	cattle_no: str
-	prod_date: str
-	c_code: str
-	anomaly_YN: str
-
 
 @router.get("/warmup")	
 async def warmup():
@@ -109,6 +103,13 @@ async def warmup():
 		},		
 		"matching": response.json()
 	}
+
+class InferSaveRequest(BaseModel):
+	cattle_no: str
+	prod_date: str
+	c_code: str
+	anomaly_YN: str
+
 
 @router.post("/infer/save")
 async def infer_save(body: InferSaveRequest):
