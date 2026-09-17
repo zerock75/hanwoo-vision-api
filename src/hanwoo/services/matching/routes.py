@@ -244,6 +244,12 @@ async def match_image(
         "matches": matches,
     }
 
+@router.get('/warmup')
+async def warmup():
+    dummy = Image.new("RGB", (224, 224), color=(128, 128, 128))
+    get_matching_service().embed_image(dummy)
+    return {"errno": 0}
+
 
 class matchImageSaveRequest(BaseModel):
 	image_name: str

@@ -53,6 +53,8 @@ def health():
     }
 
 
+
+
 @router.post("/infer")
 async def infer(
     file: UploadFile = File(description="Hanwoo image to inspect."),
@@ -88,6 +90,25 @@ class InferSaveRequest(BaseModel):
 	prod_date: str
 	c_code: str
 	anomaly_YN: str
+
+
+@router.get("/warmup")	
+async def warmup():
+	dummy 	= Image.new("RGB", (224, 224))
+	get_dinomaly_service().predict(dummy)
+	
+	async with httpx.AsyncClient(timeout=10.0) as client:
+		response = await client.get(
+			"http://matching:8000/warmup",
+			headers={"X-API-Key": HANWOO_API_KEY}
+		)
+
+	return {
+		"anomaly": {
+			"errno": 0,
+		},		
+		"matching": response.json()
+	}
 
 @router.post("/infer/save")
 async def infer_save(body: InferSaveRequest):
@@ -364,3 +385,5 @@ def _classification_metrics(counts: dict[str, int], rows: list[dict]) -> dict:
             )
         )
     return metrics
+
+
