@@ -18,6 +18,9 @@ from hanwoo.core.config import HANWOO_API_KEY
 import logging
 import base64
 
+import hanwoo.services.dinomaly.db as db
+import json
+
 router = APIRouter()
 dinomaly_service: DinomalyService | None = None
 
@@ -131,6 +134,15 @@ async def infer_save(body: InferSaveRequest):
         t1 = time.perf_counter()
         result = get_dinomaly_service().predict(image, return_heatmap=True)
         t_infer = (time.perf_counter() - t1) * 1000
+
+        anomaly_json_str = json.dumps(result, ensure_ascii=False)
+
+        async with db.pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    "INSERT INTO anomalys (c_code, anomalyJson) VALUES (%s, %s)",
+                    (body.c_code, anomaly_json_str,)
+                )
 
         heatmap_b64 = result["heatmap_b64"]
         heatmap_path = Path(f"/app/storage/rmb2/save/{body.prod_date}/{body.cattle_no}/{body.c_code}_htmap.png")
