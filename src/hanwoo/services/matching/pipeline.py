@@ -204,7 +204,7 @@ class MatchingService:
             "lot_id": lot_id,
             "capture_date": capture_date,
             "path": str(save_path),
-            "uri": str(save_path).replace("/app/storage", "")
+            "url_path": str(save_path).replace("/app/storage", "")
         }
 
     def remove_gallery_image(
@@ -331,7 +331,7 @@ class MatchingService:
                     "distance": point.distance,
                     "similarity": float(similarity),
                     "image_path": point.image_path or str(self.gallery_dir / point.lot_id / point.capture_date / f"{point.name}.png"),
-                    "image_uri": point.image_path.replace("/app/storage", ""),
+                    "url_path": point.image_path.replace("/app/storage", ""),
                     "matched_variant": point.variant,
                 }
             )
