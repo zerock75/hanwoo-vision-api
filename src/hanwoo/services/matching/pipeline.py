@@ -330,8 +330,8 @@ class MatchingService:
                     "capture_date": point.capture_date,
                     "distance": point.distance,
                     "similarity": float(similarity),
-                    "image_path": point.image_path
-                    or str(self.gallery_dir / point.lot_id / point.capture_date / f"{point.name}.png"),
+                    "image_path": point.image_path or str(self.gallery_dir / point.lot_id / point.capture_date / f"{point.name}.png"),
+                    "image_uri": point.image_path.replace("/app/storage", ""),
                     "matched_variant": point.variant,
                 }
             )
