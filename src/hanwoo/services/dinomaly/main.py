@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 async def create_db_pool():
     db.pool = await aiomysql.create_pool(
         host="192.168.0.233",
-        port=3306,
+        port=6306,
         user="dev-igogi",
         password="igogi",
         db="igogi_dev",
