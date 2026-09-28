@@ -111,6 +111,18 @@ services:
     volumes:
       - qdrant_data:/qdrant/storage
 
+
+  hanwoo-vision-api-nginx:
+    image: nginx:alpine
+    container_name: hanwoo-vision-api-nginx
+    ports:
+      - "8891:80"
+    volumes:
+      - ./storage:/app/storage
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
+  
+
+
 volumes:
   qdrant_data:
 

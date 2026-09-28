@@ -204,6 +204,7 @@ class MatchingService:
             "lot_id": lot_id,
             "capture_date": capture_date,
             "path": str(save_path),
+            "uri": str(save_path).replace("/app/storage", "")
         }
 
     def remove_gallery_image(
