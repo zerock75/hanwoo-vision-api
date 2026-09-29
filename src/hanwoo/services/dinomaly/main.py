@@ -12,8 +12,8 @@ from hanwoo.core.config import DEVICE
 from hanwoo.services.dinomaly.pipeline import DinomalyService
 from hanwoo.services.dinomaly.routes import router, set_dinomaly_service
 
-import hanwoo.services.dinomaly.db as db
-import aiomysql
+import hanwoo.core.db_233 as db_233 
+
 
 
 # uvicorn only configures its own loggers, so without this the app's records
@@ -25,20 +25,12 @@ set_dinomaly_service(dinomaly_service)
 logger = logging.getLogger(__name__)
 
 
-async def create_db_pool():
-    db.pool = await aiomysql.create_pool(
-        host="192.168.0.233",
-        port=6306,
-        user="dev-igogi",
-        password="igogi",
-        db="igogi_dev",
-        autocommit=True,
-    )
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     get_required_api_key()
-    await create_db_pool()
+    await db_233()
     try:
         dinomaly_service.load()
     except Exception as exc:

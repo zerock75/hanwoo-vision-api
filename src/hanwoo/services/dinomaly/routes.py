@@ -18,7 +18,7 @@ from hanwoo.core.config import HANWOO_API_KEY
 import logging
 import base64
 
-import hanwoo.services.dinomaly.db as db
+import hanwoo.core.db_233 as db_233
 import json
 
 router = APIRouter()
@@ -137,7 +137,7 @@ async def infer_save(body: InferSaveRequest):
 
         anomaly_json_str = json.dumps(result, ensure_ascii=False)
 
-        async with db.pool.acquire() as conn:
+        async with db_233.pool.acquire() as conn:
             async with conn.cursor() as cur:
                 await cur.execute(
                     "INSERT INTO anomalys (c_code, anomalyJson) VALUES (%s, %s)",
