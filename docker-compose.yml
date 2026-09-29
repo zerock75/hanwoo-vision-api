@@ -18,6 +18,11 @@ services:
       VALIDATOR_URL: http://localhost:8501/validator
       NVIDIA_VISIBLE_DEVICES: all
       NVIDIA_DRIVER_CAPABILITIES: compute,utility
+      DB_233_HOST: ${DB_233_HOST:-192.168.0.233}
+      DB_233_PORT: ${DB_233_PORT:-6306}
+      DB_233_USER: ${DB_233_USER:-dev-igogi}
+      DB_233_PASSWORD: ${DB_233_PASSWORD:-igogi}
+      DB_233_NAME: ${DB_233_NAME:-igogi_dev}
     volumes:
       - ./models:/app/models:ro
       - ./storage:/app/storage
@@ -74,6 +79,11 @@ services:
       HANWOO_API_KEY: ${HANWOO_API_KEY:?Set HANWOO_API_KEY in .env}
       NVIDIA_VISIBLE_DEVICES: all
       NVIDIA_DRIVER_CAPABILITIES: compute,utility
+      DB_233_HOST: ${DB_233_HOST:-192.168.0.233}
+      DB_233_PORT: ${DB_233_PORT:-6306}
+      DB_233_USER: ${DB_233_USER:-dev-igogi}
+      DB_233_PASSWORD: ${DB_233_PASSWORD:-igogi}
+      DB_233_NAME: ${DB_233_NAME:-igogi_dev}
     volumes:
       - ./models:/app/models:ro
       - /mnt/f/NIPA/aidm/rmb2/save:/app/storage/rmb2/save
