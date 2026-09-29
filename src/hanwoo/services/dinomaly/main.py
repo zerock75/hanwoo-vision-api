@@ -12,7 +12,7 @@ from hanwoo.core.config import DEVICE
 from hanwoo.services.dinomaly.pipeline import DinomalyService
 from hanwoo.services.dinomaly.routes import router, set_dinomaly_service
 
-import hanwoo.core.db_233 as db_233 
+from hanwoo.core.db_233 import db_233
 
 
 

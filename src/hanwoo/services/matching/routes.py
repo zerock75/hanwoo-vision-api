@@ -22,6 +22,8 @@ from hanwoo.core.sysinfo import system_info
 from hanwoo.core.zip_dataset import extracted_zip, find_subtree, group_by_subdir
 from hanwoo.services.matching.pipeline import MatchingService
 
+import hanwoo.core.db_233 as db_233
+
 
 router = APIRouter()
 matching_service: MatchingService | None = None
@@ -233,6 +235,8 @@ async def match_image(
     if not matches:
         raise HTTPException(status_code=404, detail="Gallery scope is empty")
     matches = [attach_match_image(matches[0]), *matches[1:]]
+
+
     return {
         "query_file": file.filename,
         "lot_id": lot_id,
@@ -284,8 +288,20 @@ async def match_image_save(body: matchImageSaveRequest):
     if not matches:
         raise HTTPException(status_code=404, detail="갤러리에 맞는 이미지가 없음")
 
-    matches[0]["name"] = matches[0]["name"][:6] + "_before"
+    c_code  = matches[0]["name"][:6]
+    matches[0]["name"] = c_code + "_before"
+    matches[0]["c_code"]    = c_code
     print(f"matches 결과: {matches}") 
+
+    async with db_233.pool.acquire() as conn:
+        async with conn.cursor() as cur:
+            await cur.execute(
+                "UPDATE qrcode_labeller " \
+                "SET matchingJson = %s " \
+                "WHERE " \
+                "cattle_no = %s AND prod_date = %s AND c_code = %s ",
+                matches, body.cattle_no, body.prod_date, c_code
+            )
 
     return {
         "errno": 0,

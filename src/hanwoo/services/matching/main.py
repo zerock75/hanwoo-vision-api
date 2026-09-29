@@ -11,6 +11,7 @@ from hanwoo.core.auth import APIKeyAuthMiddleware, get_required_api_key
 from hanwoo.core.config import DEVICE
 from hanwoo.services.matching.pipeline import MatchingService
 from hanwoo.services.matching.routes import router, set_matching_service
+from hanwoo.core.db_233 import db_233
 
 
 matching_service = MatchingService(device_name=DEVICE)
@@ -21,7 +22,8 @@ VALIDATOR_URL = os.getenv("VALIDATOR_URL", "http://localhost:8501/validator")
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     get_required_api_key()
-    matching_service.load()
+    await db_233()
+    matching_service.load()    
     yield
 
 

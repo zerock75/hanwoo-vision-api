@@ -140,8 +140,8 @@ async def infer_save(body: InferSaveRequest):
         async with db_233.pool.acquire() as conn:
             async with conn.cursor() as cur:
                 await cur.execute(
-                    "INSERT INTO anomalys (c_code, anomalyJson) VALUES (%s, %s)",
-                    (body.c_code, anomaly_json_str,)
+                    "INSERT INTO anomalys (c_code, cattle_no, prod_date, anomalyJson) VALUES (%s, %s, %s, %s)",
+                    (body.c_code, body.cattle_no, body.prod_date, anomaly_json_str,)
                 )
 
         heatmap_b64 = result["heatmap_b64"]
