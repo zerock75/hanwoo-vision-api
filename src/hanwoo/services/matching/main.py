@@ -27,6 +27,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
+
 app = FastAPI(
     title="Hanwoo Matching API",
     version="0.1.0",
