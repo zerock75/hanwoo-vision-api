@@ -74,7 +74,7 @@ DINOMALY_ENCODER_NAME = os.getenv("DINOMALY_ENCODER_NAME", "dinov2reg_vit_base_1
 
 # DATABASE 233 설정
 DB_233_HOST = os.getenv("DB_233_HOST", "127.0.0.1")
-DB_233_PORT = os.getenv("DB_233_PORT", 3306)
+DB_233_PORT = int(os.getenv("DB_233_PORT", "6306"))
 DB_233_USER = os.getenv("DB_233_USER", "test")
 DB_233_PASSWORD = os.getenv("DB_233_PASSWORD", "password")
 DB_233_NAME = os.getenv("DB_233_NAME", "test")
