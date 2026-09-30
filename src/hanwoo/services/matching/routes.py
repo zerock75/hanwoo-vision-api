@@ -138,7 +138,7 @@ async def add_gallery_images(
     return {"added": added, "count": len(added)}
 
 @router.post("/gallery/save")
-async def add_gallery_images(    
+async def add_gallery_image_save(    
     cattle_no: Annotated[str, Form(description="이력번호")],
     prod_date: Annotated[str, Form(description="생산일")],
     c_code: Annotated[str, Form(description="용기번호")],
