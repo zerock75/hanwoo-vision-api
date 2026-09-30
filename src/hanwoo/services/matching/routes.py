@@ -23,7 +23,7 @@ from hanwoo.core.zip_dataset import extracted_zip, find_subtree, group_by_subdir
 from hanwoo.services.matching.pipeline import MatchingService
 
 import hanwoo.core.db_233 as db_233
-
+import json
 
 router = APIRouter()
 matching_service: MatchingService | None = None
@@ -265,9 +265,15 @@ async def match_image_save(body: matchImageSaveRequest):
 
     image_path 	= Path(f"/app/storage/rmb2/save/{body.prod_date}/{body.cattle_no}/{body.image_name}")
     
-    print(f"{image_path}")
+    print(f"소스이미지: {image_path}")
 
-    image = Image.open(image_path).convert("RGB")
+    if not image_path.is_file():
+        raise HTTPException(status_code=404, detail=f"소스 이미지 파일을 찾을 수 없음: {image_path}")
+
+    try:
+        image = Image.open(image_path).convert("RGB")
+    except Exception as exc:
+        raise HTTPException(status_code=400, defail="이미지를 열 수 없음: {exc}") from exc
 
     # 이미 전처리된 이미지이기에 전처리과정을 처리하지 않음
     # image, _ = preprocess_for_matching_with_rgba(image)
@@ -285,23 +291,32 @@ async def match_image_save(body: matchImageSaveRequest):
 
     query_compute_ms = (perf_counter() - compute_start) * 1000.0
 
+    print("====== 매칭 결과 ============")
+    print(matches)
+    print("=============================")
+
     if not matches:
         raise HTTPException(status_code=404, detail="갤러리에 맞는 이미지가 없음")
 
     c_code  = matches[0]["name"][:6]
     matches[0]["name"] = c_code + "_before"
     matches[0]["c_code"]    = c_code
-    print(f"matches 결과: {matches}") 
+   #  print(f"matches 결과: {matches}") 
+
+    matches_json_str = json.dumps(matches[0], ensure_ascii=False)
+
+   #  print(f"matches_json_str 결과: {matches_json_str}")
 
     async with db_233.pool.acquire() as conn:
-        async with conn.cursor() as cur:
+        async with conn.cursor() as cur:   
             await cur.execute(
                 "UPDATE qrcode_labeller " \
                 "SET matchingJson = %s " \
                 "WHERE " \
-                "cattle_no = %s AND prod_date = %s AND c_code = %s ",
-                matches, body.cattle_no, body.prod_date, c_code
+                "cattle_no = %s AND proddate = %s AND c_code = %s ",
+                (matches_json_str, body.cattle_no, body.prod_date, c_code)
             )
+            # print(f"SQL: {cur._last_executed}")
 
     return {
         "errno": 0,
