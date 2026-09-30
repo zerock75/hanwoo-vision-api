@@ -145,7 +145,7 @@ async def add_gallery_image_save(
 ):
 
     # 전처리된 /rmb2/save 에 저장된 before 이미지를 불러옴
-    img_path = Path(f"/app/storage/rmb2/save/{prod_date}/{cattle_no}/{c_code}.png")
+    img_path = Path(f"/app/storage/rmb2/save/{prod_date}/{cattle_no}/{c_code}_before.png")
     if not img_path.exists():
         raise HTTPException(status_code=404, detail=f"rmb2/save 디렉토리에서 Before 이미지를 찾을 수 없음: {img_path}")
 
