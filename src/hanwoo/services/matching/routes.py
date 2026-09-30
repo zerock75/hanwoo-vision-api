@@ -137,6 +137,37 @@ async def add_gallery_images(
             raise HTTPException(status_code=422, detail=str(exc)) from exc
     return {"added": added, "count": len(added)}
 
+@router.post("/gallery/save")
+async def add_gallery_images(    
+    cattle_no: Annotated[str, Form(description="이력번호")],
+    prod_date: Annotated[str, Form(description="생산일")],
+    c_code: Annotated[str, Form(description="용기번호")],
+):
+
+    # 전처리된 /rmb2/save 에 저장된 before 이미지를 불러옴
+    img_path = Path(f"/app/storage/rmb2/save/{prod_date}/{cattle_no}/{c_code}.png")
+    if not img_path.exists():
+        raise HTTPException(status_code=404, detail=f"rmb2/save 디렉토리에서 Before 이미지를 찾을 수 없음: {img_path}")
+
+    try:
+        image = Image.open(img_path).convert("RGB")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"허용되지 않는 이미지 포맷. {e}") from e
+    
+    service = get_matching_service()
+    try:
+        service.add_gallery_image(
+            img_path.name,
+            image,
+            lot_id=cattle_no,
+            capture_date=prod_date,
+            preprocessed=False,
+            rgba_image=None
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return { "errno": 0 }
+
 
 @router.post("/gallery/import-directory")
 def import_gallery_directory(request: DirectoryImportRequest):
@@ -260,6 +291,7 @@ class matchImageSaveRequest(BaseModel):
 	cattle_no: str
 	prod_date: str
 
+# /rmb2/save/ 에 저장된 이미지를 매칭
 @router.post("/match/save")
 async def match_image_save(body: matchImageSaveRequest):
 
