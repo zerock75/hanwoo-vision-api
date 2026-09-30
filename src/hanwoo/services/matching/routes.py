@@ -150,7 +150,8 @@ async def add_gallery_image_save(
         raise HTTPException(status_code=404, detail=f"rmb2/save 디렉토리에서 Before 이미지를 찾을 수 없음: {img_path}")
 
     try:
-        image = Image.open(img_path).convert("RGB")
+        # image = Image.open(img_path).convert("RGB")
+        Image.open(img_path).convert("RGB")
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"허용되지 않는 이미지 포맷. {e}") from e
     

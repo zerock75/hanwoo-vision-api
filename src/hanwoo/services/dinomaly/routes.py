@@ -125,7 +125,8 @@ async def infer_save(body: InferSaveRequest):
     
     t0 = time.perf_counter()
     try:
-        image 	= Image.open(img_path).convert("RGB")
+        # image 	= Image.open(img_path).convert("RGB")
+        image = Image.open(img_path)
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"허용되지 않는 이미지 포맷입니다. {e}") from e
 
