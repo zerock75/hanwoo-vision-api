@@ -135,17 +135,17 @@ async def infer_save(body: InferSaveRequest):
         result = get_dinomaly_service().predict(image, return_heatmap=True)
         t_infer = (time.perf_counter() - t1) * 1000
 
-        # anomaly_json_str = json.dumps(result, ensure_ascii=False)
-        anomaly_json_str = json.dumps(
-          {k: v for k, v in result.items() if k != "heatmap_b64"},
-          ensure_ascii=False,
-        )
+        anomaly_json_str = json.dumps(result, ensure_ascii=False)
+        # anomaly_json_str = json.dumps(
+        #   {k: v for k, v in result.items() if k != "heatmap_b64"},
+        #   ensure_ascii=False,
+        # )
 
         async with db_233.pool.acquire() as conn:
             async with conn.cursor() as cur:
                 await cur.execute(
                     "INSERT INTO anomalys (c_code, cattle_no, prod_date, anomalyJson) VALUES (%s, %s, %s, %s)",
-                    (body.c_code, body.cattle_no, body.prod_date, anomaly_json_str,)
+                    (body.c_code, body.cattle_no, body.prod_date, anomaly_json_str)
                 )
 
         heatmap_b64 = result["heatmap_b64"]
