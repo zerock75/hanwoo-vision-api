@@ -165,7 +165,7 @@ async def infer_save(body: InferSaveRequest):
                 "anomaly": {			
                     "filename": img_path.name,
                     "infer_ms": round(t_infer, 1),
-                    **result,
+                    **{k: v for k, v in result.items() if k != "heatmap_b64"},
                 },
             }
     else:
