@@ -72,7 +72,7 @@ services:
       #   best_model.pth              -> 0.192822   DINOv2, rollback
       # (AUROC/latency measured on data/2709test_latest, n=34, roi_topk.)
       DINOMALY_MODEL_PATH: ${DINOMALY_MODEL_PATH:-/app/models/dinomaly/best_model_dinov3_large.pth}
-      DINOMALY_THRESHOLD: ${DINOMALY_THRESHOLD:-0.085646}
+      DINOMALY_THRESHOLD: ${DINOMALY_THRESHOLD:-0.105646}
       DINOMALY_SCORE_MODE: ${DINOMALY_SCORE_MODE:-roi_topk}
       MATCHING_DOWNSCALE: ${MATCHING_DOWNSCALE:-1}
       U2NET_HOME: /app/models/u2net
